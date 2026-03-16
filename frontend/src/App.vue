@@ -30,7 +30,7 @@ const showNav = computed(() => {
 </script>
 
 <style>
-/* 全局样式重置 */
+/* Global style reset */
 * {
   margin: 0;
   padding: 0;
@@ -45,7 +45,7 @@ const showNav = computed(() => {
   background-color: #ffffff;
 }
 
-/* 滚动条样式 */
+/* Scrollbar styles */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -63,7 +63,7 @@ const showNav = computed(() => {
   background: #333333;
 }
 
-/* 全局按钮样式 */
+/* Global button styles */
 button {
   font-family: inherit;
 }
