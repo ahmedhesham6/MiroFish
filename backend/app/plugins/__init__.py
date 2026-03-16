@@ -11,6 +11,7 @@ from .sdk import (
 )
 from .registry import PluginRegistry
 from .executor import PluginExecutor, PluginResult
+from .hooks import PluginHooks, PluginContext
 
 __all__ = [
     "PluginManifest",
@@ -21,4 +22,6 @@ __all__ = [
     "PluginRegistry",
     "PluginExecutor",
     "PluginResult",
+    "PluginHooks",
+    "PluginContext",
 ]

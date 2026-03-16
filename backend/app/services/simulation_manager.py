@@ -17,6 +17,7 @@ from ..utils.logger import get_logger
 from .zep_entity_reader import ZepEntityReader, FilteredEntities
 from .oasis_profile_generator import OasisProfileGenerator, OasisAgentProfile
 from .simulation_config_generator import SimulationConfigGenerator, SimulationParameters
+from ..plugins.hooks import PluginHooks, PluginContext
 
 logger = get_logger('mirofish.simulation')
 
@@ -124,6 +125,7 @@ class SimulationManager:
 
     def __init__(self, tenant_id: str):
         from ..models.tenant import TenantManager
+        self.tenant_id = tenant_id
         self.SIMULATION_DATA_DIR = os.path.join(
             TenantManager._get_tenant_data_dir(tenant_id), 'simulations'
         )
@@ -416,10 +418,18 @@ class SimulationManager:
                     total=3
                 )
 
+            # Run Market plugin hooks — plugins may override simulation parameters
+            plugin_ctx = PluginContext(
+                tenant_id=self.tenant_id,
+                simulation_id=simulation_id,
+                project_id=state.project_id,
+            )
+            sim_params_dict = PluginHooks.run_market_hooks(plugin_ctx, sim_params.to_dict())
+
             # Save config file
             config_path = os.path.join(sim_dir, "simulation_config.json")
             with open(config_path, 'w', encoding='utf-8') as f:
-                f.write(sim_params.to_json())
+                json.dump(sim_params_dict, f, ensure_ascii=False, indent=2)
             
             state.config_generated = True
             state.config_reasoning = sim_params.generation_reasoning

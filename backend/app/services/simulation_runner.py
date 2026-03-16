@@ -22,6 +22,7 @@ from ..config import Config
 from ..utils.logger import get_logger
 from .zep_graph_memory_updater import ZepGraphMemoryManager
 from .simulation_ipc import SimulationIPCClient, CommandType, IPCResponse
+from ..plugins.hooks import PluginHooks, PluginContext
 
 logger = get_logger('mirofish.simulation_runner')
 
@@ -102,6 +103,7 @@ class SimulationRunState:
     """Real-time simulation run state."""
     simulation_id: str
     runner_status: RunnerStatus = RunnerStatus.IDLE
+    tenant_id: Optional[str] = None
 
     # Progress info
     current_round: int = 0
@@ -315,7 +317,8 @@ class SimulationRunner:
         platform: str = "parallel",  # twitter / reddit / parallel
         max_rounds: int = None,  # maximum simulation rounds (optional, for truncating long simulations)
         enable_graph_memory_update: bool = False,  # whether to update activities to Zep graph
-        graph_id: str = None  # Zep graph ID (required when graph memory update is enabled)
+        graph_id: str = None,  # Zep graph ID (required when graph memory update is enabled)
+        tenant_id: str = None,  # tenant ID for plugin hooks
     ) -> SimulationRunState:
         """
         Start a simulation.
@@ -364,6 +367,7 @@ class SimulationRunner:
             total_rounds=total_rounds,
             total_simulation_hours=total_hours,
             started_at=datetime.now().isoformat(),
+            tenant_id=tenant_id,
         )
         
         cls._save_run_state(state)
@@ -657,6 +661,18 @@ class SimulationRunner:
                                 
                                 continue
                             
+                            # Run Action plugin hooks (transform action before recording)
+                            if state.tenant_id:
+                                plugin_ctx = PluginContext(
+                                    tenant_id=state.tenant_id,
+                                    simulation_id=state.simulation_id,
+                                )
+                                action_data = PluginHooks.run_action_hooks(
+                                    plugin_ctx,
+                                    agent_id=str(action_data.get("agent_id", "")),
+                                    action=action_data,
+                                )
+
                             action = AgentAction(
                                 round_num=action_data.get("round", 0),
                                 timestamp=action_data.get("timestamp", datetime.now().isoformat()),

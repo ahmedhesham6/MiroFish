@@ -18,6 +18,7 @@ from ..utils.logger import get_logger
 from ..models.task import TaskManager, TaskStatus
 from ..models.project import ProjectManager, ProjectStatus
 from ..middleware.auth import requires_auth
+from ..plugins.hooks import PluginHooks, PluginContext
 
 # Get logger
 logger = get_logger('mirofish.api')
@@ -222,6 +223,13 @@ def generate_ontology():
         project.total_text_length = len(all_text)
         ProjectManager.save_extracted_text(tenant_id, project.project_id, all_text)
         logger.info(f"Text extraction complete, {len(all_text)} characters total")
+
+        # Run Source plugin hooks — plugins may inject additional documents
+        plugin_ctx = PluginContext(
+            tenant_id=tenant_id,
+            project_id=project.project_id,
+        )
+        document_texts = PluginHooks.run_source_hooks(plugin_ctx, document_texts)
 
         # Generate ontology
         logger.info("Calling LLM to generate ontology definition...")
