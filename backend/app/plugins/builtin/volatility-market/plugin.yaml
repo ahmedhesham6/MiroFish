@@ -1,0 +1,18 @@
+name: volatility-market
+version: 1.0.0
+type: market
+entry_point: main:VolatilityMarketPlugin
+description: "High-volatility simulation template with shorter rounds, more extreme sentiment, and optional breaking-news event injection."
+author: "MiroFish"
+config_schema:
+  type: object
+  properties:
+    volatility_level:
+      type: string
+      enum: ["low", "medium", "high"]
+      description: "Volatility intensity. Controls round duration and platform algorithm aggressiveness."
+      default: "medium"
+    enable_breaking_news:
+      type: boolean
+      description: "When true, injects a breaking-news scheduled event at round 1 to seed initial sentiment spike."
+      default: false
