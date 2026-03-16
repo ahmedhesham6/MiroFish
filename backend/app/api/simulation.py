@@ -45,8 +45,8 @@ def optimize_interview_prompt(prompt: str) -> str:
 
 # ============== Entity Read Endpoints ==============
 
-@requires_auth
 @simulation_bp.route('/entities/<graph_id>', methods=['GET'])
+@requires_auth
 def get_graph_entities(graph_id: str):
     """
     Retrieve all filtered entities from a graph.
@@ -91,8 +91,8 @@ def get_graph_entities(graph_id: str):
         }), 500
 
 
-@requires_auth
 @simulation_bp.route('/entities/<graph_id>/<entity_uuid>', methods=['GET'])
+@requires_auth
 def get_entity_detail(graph_id: str, entity_uuid: str):
     """Retrieve detailed information for a single entity."""
     try:
@@ -125,8 +125,8 @@ def get_entity_detail(graph_id: str, entity_uuid: str):
         }), 500
 
 
-@requires_auth
 @simulation_bp.route('/entities/<graph_id>/by-type/<entity_type>', methods=['GET'])
+@requires_auth
 def get_entities_by_type(graph_id: str, entity_type: str):
     """Retrieve all entities of the specified type."""
     try:
@@ -165,8 +165,8 @@ def get_entities_by_type(graph_id: str, entity_type: str):
 
 # ============== Simulation Management Endpoints ==============
 
-@requires_auth
 @simulation_bp.route('/create', methods=['POST'])
+@requires_auth
 def create_simulation():
     """
     创建新的模拟
@@ -360,8 +360,8 @@ def _check_simulation_prepared(simulation_id: str) -> tuple:
         return False, {"reason": f"读取状态文件失败: {str(e)}"}
 
 
-@requires_auth
 @simulation_bp.route('/prepare', methods=['POST'])
+@requires_auth
 def prepare_simulation():
     """
     准备模拟环境（异步任务，LLM智能生成所有参数）
@@ -640,8 +640,8 @@ def prepare_simulation():
         }), 500
 
 
-@requires_auth
 @simulation_bp.route('/prepare/status', methods=['POST'])
+@requires_auth
 def get_prepare_status():
     """
     查询准备任务进度
@@ -754,8 +754,8 @@ def get_prepare_status():
         }), 500
 
 
-@requires_auth
 @simulation_bp.route('/<simulation_id>', methods=['GET'])
+@requires_auth
 def get_simulation(simulation_id: str):
     """获取模拟状态"""
     try:
@@ -788,8 +788,8 @@ def get_simulation(simulation_id: str):
         }), 500
 
 
-@requires_auth
 @simulation_bp.route('/list', methods=['GET'])
+@requires_auth
 def list_simulations():
     """
     列出所有模拟
@@ -877,8 +877,8 @@ def _get_report_id_for_simulation(simulation_id: str) -> str:
         return None
 
 
-@requires_auth
 @simulation_bp.route('/history', methods=['GET'])
+@requires_auth
 def get_simulation_history():
     """
     获取历史模拟列表（带项目详情）
@@ -992,8 +992,8 @@ def get_simulation_history():
         }), 500
 
 
-@requires_auth
 @simulation_bp.route('/<simulation_id>/profiles', methods=['GET'])
+@requires_auth
 def get_simulation_profiles(simulation_id: str):
     """
     获取模拟的Agent Profile
@@ -1031,8 +1031,8 @@ def get_simulation_profiles(simulation_id: str):
         }), 500
 
 
-@requires_auth
 @simulation_bp.route('/<simulation_id>/profiles/realtime', methods=['GET'])
+@requires_auth
 def get_simulation_profiles_realtime(simulation_id: str):
     """
     实时获取模拟的Agent Profile（用于在生成过程中实时查看进度）
@@ -1142,8 +1142,8 @@ def get_simulation_profiles_realtime(simulation_id: str):
         }), 500
 
 
-@requires_auth
 @simulation_bp.route('/<simulation_id>/config/realtime', methods=['GET'])
+@requires_auth
 def get_simulation_config_realtime(simulation_id: str):
     """
     实时获取模拟配置（用于在生成过程中实时查看进度）
@@ -1263,8 +1263,8 @@ def get_simulation_config_realtime(simulation_id: str):
         }), 500
 
 
-@requires_auth
 @simulation_bp.route('/<simulation_id>/config', methods=['GET'])
+@requires_auth
 def get_simulation_config(simulation_id: str):
     """
     获取模拟配置（LLM智能生成的完整配置）
@@ -1300,8 +1300,8 @@ def get_simulation_config(simulation_id: str):
         }), 500
 
 
-@requires_auth
 @simulation_bp.route('/<simulation_id>/config/download', methods=['GET'])
+@requires_auth
 def download_simulation_config(simulation_id: str):
     """下载模拟配置文件"""
     try:
@@ -1330,8 +1330,8 @@ def download_simulation_config(simulation_id: str):
         }), 500
 
 
-@requires_auth
 @simulation_bp.route('/script/<script_name>/download', methods=['GET'])
+@requires_auth
 def download_simulation_script(script_name: str):
     """
     下载模拟运行脚本文件（通用脚本，位于 backend/scripts/）
@@ -1385,8 +1385,8 @@ def download_simulation_script(script_name: str):
 
 # ============== Profile生成接口（独立使用） ==============
 
-@requires_auth
 @simulation_bp.route('/generate-profiles', methods=['POST'])
+@requires_auth
 def generate_profiles():
     """
     直接从图谱生成OASIS Agent Profile（不创建模拟）
@@ -1460,8 +1460,8 @@ def generate_profiles():
 
 # ============== 模拟运行控制接口 ==============
 
-@requires_auth
 @simulation_bp.route('/start', methods=['POST'])
+@requires_auth
 def start_simulation():
     """
     开始运行模拟
@@ -1654,8 +1654,8 @@ def start_simulation():
         }), 500
 
 
-@requires_auth
 @simulation_bp.route('/stop', methods=['POST'])
+@requires_auth
 def stop_simulation():
     """
     停止模拟
@@ -1716,8 +1716,8 @@ def stop_simulation():
 
 # ============== 实时状态监控接口 ==============
 
-@requires_auth
 @simulation_bp.route('/<simulation_id>/run-status', methods=['GET'])
+@requires_auth
 def get_run_status(simulation_id: str):
     """
     获取模拟运行实时状态（用于前端轮询）
@@ -1775,8 +1775,8 @@ def get_run_status(simulation_id: str):
         }), 500
 
 
-@requires_auth
 @simulation_bp.route('/<simulation_id>/run-status/detail', methods=['GET'])
+@requires_auth
 def get_run_status_detail(simulation_id: str):
     """
     获取模拟运行详细状态（包含所有动作）
@@ -1877,8 +1877,8 @@ def get_run_status_detail(simulation_id: str):
         }), 500
 
 
-@requires_auth
 @simulation_bp.route('/<simulation_id>/actions', methods=['GET'])
+@requires_auth
 def get_simulation_actions(simulation_id: str):
     """
     获取模拟中的Agent动作历史
@@ -1932,8 +1932,8 @@ def get_simulation_actions(simulation_id: str):
         }), 500
 
 
-@requires_auth
 @simulation_bp.route('/<simulation_id>/timeline', methods=['GET'])
+@requires_auth
 def get_simulation_timeline(simulation_id: str):
     """
     获取模拟时间线（按轮次汇总）
@@ -1973,8 +1973,8 @@ def get_simulation_timeline(simulation_id: str):
         }), 500
 
 
-@requires_auth
 @simulation_bp.route('/<simulation_id>/agent-stats', methods=['GET'])
+@requires_auth
 def get_agent_stats(simulation_id: str):
     """
     获取每个Agent的统计信息
@@ -2003,8 +2003,8 @@ def get_agent_stats(simulation_id: str):
 
 # ============== 数据库查询接口 ==============
 
-@requires_auth
 @simulation_bp.route('/<simulation_id>/posts', methods=['GET'])
+@requires_auth
 def get_simulation_posts(simulation_id: str):
     """
     获取模拟中的帖子
@@ -2082,8 +2082,8 @@ def get_simulation_posts(simulation_id: str):
         }), 500
 
 
-@requires_auth
 @simulation_bp.route('/<simulation_id>/comments', methods=['GET'])
+@requires_auth
 def get_simulation_comments(simulation_id: str):
     """
     获取模拟中的评论（仅Reddit）
@@ -2160,8 +2160,8 @@ def get_simulation_comments(simulation_id: str):
 
 # ============== Interview 采访接口 ==============
 
-@requires_auth
 @simulation_bp.route('/interview', methods=['POST'])
+@requires_auth
 def interview_agent():
     """
     采访单个Agent
@@ -2290,8 +2290,8 @@ def interview_agent():
         }), 500
 
 
-@requires_auth
 @simulation_bp.route('/interview/batch', methods=['POST'])
+@requires_auth
 def interview_agents_batch():
     """
     批量采访多个Agent
@@ -2429,8 +2429,8 @@ def interview_agents_batch():
         }), 500
 
 
-@requires_auth
 @simulation_bp.route('/interview/all', methods=['POST'])
+@requires_auth
 def interview_all_agents():
     """
     全局采访 - 使用相同问题采访所有Agent
@@ -2533,8 +2533,8 @@ def interview_all_agents():
         }), 500
 
 
-@requires_auth
 @simulation_bp.route('/interview/history', methods=['POST'])
+@requires_auth
 def get_interview_history():
     """
     获取Interview历史记录
@@ -2606,8 +2606,8 @@ def get_interview_history():
         }), 500
 
 
-@requires_auth
 @simulation_bp.route('/env-status', methods=['POST'])
+@requires_auth
 def get_env_status():
     """
     获取模拟环境状态
@@ -2672,8 +2672,8 @@ def get_env_status():
         }), 500
 
 
-@requires_auth
 @simulation_bp.route('/close-env', methods=['POST'])
+@requires_auth
 def close_simulation_env():
     """
     关闭模拟环境

@@ -33,8 +33,8 @@ def allowed_file(filename: str) -> bool:
 
 # ============== 项目管理接口 ==============
 
-@requires_auth
 @graph_bp.route('/project/<project_id>', methods=['GET'])
+@requires_auth
 def get_project(project_id: str):
     """
     获取项目详情
@@ -53,8 +53,8 @@ def get_project(project_id: str):
     })
 
 
-@requires_auth
 @graph_bp.route('/project/list', methods=['GET'])
+@requires_auth
 def list_projects():
     """
     列出所有项目
@@ -69,8 +69,8 @@ def list_projects():
     })
 
 
-@requires_auth
 @graph_bp.route('/project/<project_id>', methods=['DELETE'])
+@requires_auth
 def delete_project(project_id: str):
     """
     删除项目
@@ -89,8 +89,8 @@ def delete_project(project_id: str):
     })
 
 
-@requires_auth
 @graph_bp.route('/project/<project_id>/reset', methods=['POST'])
+@requires_auth
 def reset_project(project_id: str):
     """
     重置项目状态（用于重新构建图谱）
@@ -123,8 +123,8 @@ def reset_project(project_id: str):
 
 # ============== 接口1：上传文件并生成本体 ==============
 
-@requires_auth
 @graph_bp.route('/ontology/generate', methods=['POST'])
+@requires_auth
 def generate_ontology():
     """
     接口1：上传文件，分析生成本体定义
@@ -262,8 +262,8 @@ def generate_ontology():
 
 # ============== 接口2：构建图谱 ==============
 
-@requires_auth
 @graph_bp.route('/build', methods=['POST'])
+@requires_auth
 def build_graph():
     """
     接口2：根据project_id构建图谱
@@ -533,8 +533,8 @@ def build_graph():
 
 # ============== 任务查询接口 ==============
 
-@requires_auth
 @graph_bp.route('/task/<task_id>', methods=['GET'])
+@requires_auth
 def get_task(task_id: str):
     """
     查询任务状态
@@ -553,8 +553,8 @@ def get_task(task_id: str):
     })
 
 
-@requires_auth
 @graph_bp.route('/tasks', methods=['GET'])
+@requires_auth
 def list_tasks():
     """
     列出所有任务
@@ -570,8 +570,8 @@ def list_tasks():
 
 # ============== 图谱数据接口 ==============
 
-@requires_auth
 @graph_bp.route('/data/<graph_id>', methods=['GET'])
+@requires_auth
 def get_graph_data(graph_id: str):
     """
     获取图谱数据（节点和边）
@@ -599,8 +599,8 @@ def get_graph_data(graph_id: str):
         }), 500
 
 
-@requires_auth
 @graph_bp.route('/delete/<graph_id>', methods=['DELETE'])
+@requires_auth
 def delete_graph(graph_id: str):
     """
     删除Zep图谱

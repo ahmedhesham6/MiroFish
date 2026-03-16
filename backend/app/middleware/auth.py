@@ -38,7 +38,7 @@ def requires_auth(f):
         except jwt.ExpiredSignatureError:
             return jsonify({"error": "Token has expired"}), 401
         except jwt.InvalidTokenError as exc:
-            return jsonify({"error": f"Invalid token: {exc}"}), 401
+            return jsonify({"error": "Invalid token"}), 401
 
         user_id = payload.get("sub")
         tenant_id = payload.get("tenant_id")
