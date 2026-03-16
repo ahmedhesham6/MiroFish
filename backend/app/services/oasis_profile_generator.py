@@ -1112,7 +1112,8 @@ Important:
 
         gender_lower = gender.lower().strip()
 
-        # Chinese → English mapping
+        # Chinese → English mapping (keys are legacy Chinese gender values from data)
+        # 男 = "male", 女 = "female", 机构 = "institution/other", 其他 = "other"
         gender_map = {
             "男": "male",
             "女": "female",
