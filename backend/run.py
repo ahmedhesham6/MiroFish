@@ -1,5 +1,5 @@
 """
-MiroFish Backend 启动入口
+MiroFish Backend entry point.
 """
 
 import os

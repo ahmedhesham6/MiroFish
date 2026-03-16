@@ -1,11 +1,11 @@
 """
-Zep检索工具服务
-封装图谱搜索、节点读取、边查询等工具，供Report Agent使用
+Zep retrieval tools service
+Wraps graph search, node reads, edge queries, and related tools for use by the Report Agent.
 
-核心检索工具（优化后）：
-1. InsightForge（深度洞察检索）- 最强大的混合检索，自动生成子问题并多维度检索
-2. PanoramaSearch（广度搜索）- 获取全貌，包括过期内容
-3. QuickSearch（简单搜索）- 快速检索
+Core retrieval tools (optimized):
+1. InsightForge (deep insight retrieval) - Most powerful hybrid retrieval; auto-generates sub-queries and searches across multiple dimensions
+2. PanoramaSearch (breadth search) - Retrieves the full picture, including expired content
+3. QuickSearch (simple search) - Fast, lightweight retrieval
 """
 
 import time
@@ -25,7 +25,7 @@ logger = get_logger('mirofish.zep_tools')
 
 @dataclass
 class SearchResult:
-    """搜索结果"""
+    """Search result"""
     facts: List[str]
     edges: List[Dict[str, Any]]
     nodes: List[Dict[str, Any]]
@@ -42,20 +42,20 @@ class SearchResult:
         }
     
     def to_text(self) -> str:
-        """转换为文本格式，供LLM理解"""
-        text_parts = [f"搜索查询: {self.query}", f"找到 {self.total_count} 条相关信息"]
-        
+        """Convert to text format for LLM consumption"""
+        text_parts = [f"Search query: {self.query}", f"Found {self.total_count} relevant results"]
+
         if self.facts:
-            text_parts.append("\n### 相关事实:")
+            text_parts.append("\n### Relevant facts:")
             for i, fact in enumerate(self.facts, 1):
                 text_parts.append(f"{i}. {fact}")
-        
+
         return "\n".join(text_parts)
 
 
 @dataclass
 class NodeInfo:
-    """节点信息"""
+    """Node information"""
     uuid: str
     name: str
     labels: List[str]
@@ -72,14 +72,14 @@ class NodeInfo:
         }
     
     def to_text(self) -> str:
-        """转换为文本格式"""
-        entity_type = next((l for l in self.labels if l not in ["Entity", "Node"]), "未知类型")
-        return f"实体: {self.name} (类型: {entity_type})\n摘要: {self.summary}"
+        """Convert to text format"""
+        entity_type = next((l for l in self.labels if l not in ["Entity", "Node"]), "Unknown type")
+        return f"Entity: {self.name} (type: {entity_type})\nSummary: {self.summary}"
 
 
 @dataclass
 class EdgeInfo:
-    """边信息"""
+    """Edge information"""
     uuid: str
     name: str
     fact: str
@@ -87,7 +87,7 @@ class EdgeInfo:
     target_node_uuid: str
     source_node_name: Optional[str] = None
     target_node_name: Optional[str] = None
-    # 时间信息
+    # Temporal information
     created_at: Optional[str] = None
     valid_at: Optional[str] = None
     invalid_at: Optional[str] = None
@@ -109,45 +109,45 @@ class EdgeInfo:
         }
     
     def to_text(self, include_temporal: bool = False) -> str:
-        """转换为文本格式"""
+        """Convert to text format"""
         source = self.source_node_name or self.source_node_uuid[:8]
         target = self.target_node_name or self.target_node_uuid[:8]
-        base_text = f"关系: {source} --[{self.name}]--> {target}\n事实: {self.fact}"
-        
+        base_text = f"Relation: {source} --[{self.name}]--> {target}\nFact: {self.fact}"
+
         if include_temporal:
-            valid_at = self.valid_at or "未知"
-            invalid_at = self.invalid_at or "至今"
-            base_text += f"\n时效: {valid_at} - {invalid_at}"
+            valid_at = self.valid_at or "unknown"
+            invalid_at = self.invalid_at or "present"
+            base_text += f"\nValidity: {valid_at} - {invalid_at}"
             if self.expired_at:
-                base_text += f" (已过期: {self.expired_at})"
-        
+                base_text += f" (expired: {self.expired_at})"
+
         return base_text
-    
+
     @property
     def is_expired(self) -> bool:
-        """是否已过期"""
+        """Whether this edge has expired"""
         return self.expired_at is not None
-    
+
     @property
     def is_invalid(self) -> bool:
-        """是否已失效"""
+        """Whether this edge has been invalidated"""
         return self.invalid_at is not None
 
 
 @dataclass
 class InsightForgeResult:
     """
-    深度洞察检索结果 (InsightForge)
-    包含多个子问题的检索结果，以及综合分析
+    Deep insight retrieval result (InsightForge)
+    Contains retrieval results for multiple sub-queries along with a synthesized analysis.
     """
     query: str
     simulation_requirement: str
     sub_queries: List[str]
-    
-    # 各维度检索结果
-    semantic_facts: List[str] = field(default_factory=list)  # 语义搜索结果
-    entity_insights: List[Dict[str, Any]] = field(default_factory=list)  # 实体洞察
-    relationship_chains: List[str] = field(default_factory=list)  # 关系链
+
+    # Retrieval results across dimensions
+    semantic_facts: List[str] = field(default_factory=list)  # Semantic search results
+    entity_insights: List[Dict[str, Any]] = field(default_factory=list)  # Entity insights
+    relationship_chains: List[str] = field(default_factory=list)  # Relationship chains
     
     # 统计信息
     total_facts: int = 0

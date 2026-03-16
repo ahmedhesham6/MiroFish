@@ -1,6 +1,6 @@
 """
-API调用重试机制
-用于处理LLM等外部API调用的重试逻辑
+API call retry mechanism.
+Handles retry logic for external API calls such as LLM requests.
 """
 
 import time

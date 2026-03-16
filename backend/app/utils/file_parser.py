@@ -1,6 +1,6 @@
 """
-文件解析工具
-支持PDF、Markdown、TXT文件的文本提取
+File parsing utilities.
+Supports text extraction from PDF, Markdown, and TXT files.
 """
 
 import os

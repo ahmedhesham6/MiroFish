@@ -1,6 +1,6 @@
 """
-OASIS模拟运行器
-在后台运行模拟并记录每个Agent的动作，支持实时状态监控
+OASIS Simulation Runner
+Runs simulations in the background, records each agent's actions, and supports real-time status monitoring.
 """
 
 import os
@@ -25,15 +25,15 @@ from .simulation_ipc import SimulationIPCClient, CommandType, IPCResponse
 
 logger = get_logger('mirofish.simulation_runner')
 
-# 标记是否已注册清理函数
+# Flag indicating whether the cleanup function has been registered
 _cleanup_registered = False
 
-# 平台检测
+# Platform detection
 IS_WINDOWS = sys.platform == 'win32'
 
 
 class RunnerStatus(str, Enum):
-    """运行器状态"""
+    """Runner status"""
     IDLE = "idle"
     STARTING = "starting"
     RUNNING = "running"
@@ -46,7 +46,7 @@ class RunnerStatus(str, Enum):
 
 @dataclass
 class AgentAction:
-    """Agent动作记录"""
+    """Agent action record"""
     round_num: int
     timestamp: str
     platform: str  # twitter / reddit
@@ -73,7 +73,7 @@ class AgentAction:
 
 @dataclass
 class RoundSummary:
-    """每轮摘要"""
+    """Per-round summary"""
     round_num: int
     start_time: str
     end_time: Optional[str] = None

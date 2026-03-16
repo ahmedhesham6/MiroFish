@@ -1,6 +1,6 @@
 """
-图谱相关API路由
-采用项目上下文机制，服务端持久化状态
+Graph-related API routes
+Uses a project context mechanism with server-side persistent state
 """
 
 import os
@@ -17,8 +17,9 @@ from ..utils.file_parser import FileParser
 from ..utils.logger import get_logger
 from ..models.task import TaskManager, TaskStatus
 from ..models.project import ProjectManager, ProjectStatus
+from ..middleware.auth import requires_auth
 
-# 获取日志器
+# Get logger
 logger = get_logger('mirofish.api')
 
 
@@ -32,6 +33,7 @@ def allowed_file(filename: str) -> bool:
 
 # ============== 项目管理接口 ==============
 
+@requires_auth
 @graph_bp.route('/project/<project_id>', methods=['GET'])
 def get_project(project_id: str):
     """
@@ -51,6 +53,7 @@ def get_project(project_id: str):
     })
 
 
+@requires_auth
 @graph_bp.route('/project/list', methods=['GET'])
 def list_projects():
     """
@@ -66,6 +69,7 @@ def list_projects():
     })
 
 
+@requires_auth
 @graph_bp.route('/project/<project_id>', methods=['DELETE'])
 def delete_project(project_id: str):
     """
@@ -85,6 +89,7 @@ def delete_project(project_id: str):
     })
 
 
+@requires_auth
 @graph_bp.route('/project/<project_id>/reset', methods=['POST'])
 def reset_project(project_id: str):
     """
@@ -118,6 +123,7 @@ def reset_project(project_id: str):
 
 # ============== 接口1：上传文件并生成本体 ==============
 
+@requires_auth
 @graph_bp.route('/ontology/generate', methods=['POST'])
 def generate_ontology():
     """
@@ -256,6 +262,7 @@ def generate_ontology():
 
 # ============== 接口2：构建图谱 ==============
 
+@requires_auth
 @graph_bp.route('/build', methods=['POST'])
 def build_graph():
     """
@@ -526,6 +533,7 @@ def build_graph():
 
 # ============== 任务查询接口 ==============
 
+@requires_auth
 @graph_bp.route('/task/<task_id>', methods=['GET'])
 def get_task(task_id: str):
     """
@@ -545,6 +553,7 @@ def get_task(task_id: str):
     })
 
 
+@requires_auth
 @graph_bp.route('/tasks', methods=['GET'])
 def list_tasks():
     """
@@ -561,6 +570,7 @@ def list_tasks():
 
 # ============== 图谱数据接口 ==============
 
+@requires_auth
 @graph_bp.route('/data/<graph_id>', methods=['GET'])
 def get_graph_data(graph_id: str):
     """
@@ -589,6 +599,7 @@ def get_graph_data(graph_id: str):
         }), 500
 
 
+@requires_auth
 @graph_bp.route('/delete/<graph_id>', methods=['DELETE'])
 def delete_graph(graph_id: str):
     """

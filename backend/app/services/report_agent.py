@@ -1,12 +1,12 @@
 """
-Report Agent服务
-使用LangChain + Zep实现ReACT模式的模拟报告生成
+Report Agent service
+Implements ReACT-pattern simulation report generation using LangChain + Zep.
 
-功能：
-1. 根据模拟需求和Zep图谱信息生成报告
-2. 先规划目录结构，然后分段生成
-3. 每段采用ReACT多轮思考与反思模式
-4. 支持与用户对话，在对话中自主调用检索工具
+Features:
+1. Generate reports from simulation requirements and Zep graph data
+2. Plan the outline structure first, then generate section by section
+3. Each section uses a multi-round ReACT think-and-reflect loop
+4. Supports user chat with autonomous tool-call retrieval
 """
 
 import os
@@ -34,52 +34,54 @@ logger = get_logger('mirofish.report_agent')
 
 class ReportLogger:
     """
-    Report Agent 详细日志记录器
-    
-    在报告文件夹中生成 agent_log.jsonl 文件，记录每一步详细动作。
-    每行是一个完整的 JSON 对象，包含时间戳、动作类型、详细内容等。
+    Report Agent detailed logger.
+
+    Writes an agent_log.jsonl file inside the report folder, recording every
+    step in detail.  Each line is a complete JSON object containing a
+    timestamp, action type, and detailed content.
     """
-    
-    def __init__(self, report_id: str):
+
+    def __init__(self, report_id: str, tenant_id: str):
         """
-        初始化日志记录器
-        
+        Initialize the logger.
+
         Args:
-            report_id: 报告ID，用于确定日志文件路径
+            report_id: Report ID used to determine the log file path.
+            tenant_id: Tenant ID for scoping the storage path.
         """
         self.report_id = report_id
         self.log_file_path = os.path.join(
-            Config.UPLOAD_FOLDER, 'reports', report_id, 'agent_log.jsonl'
+            ReportManager._get_reports_dir(tenant_id), report_id, 'agent_log.jsonl'
         )
         self.start_time = datetime.now()
         self._ensure_log_file()
     
     def _ensure_log_file(self):
-        """确保日志文件所在目录存在"""
+        """Ensure the directory containing the log file exists."""
         log_dir = os.path.dirname(self.log_file_path)
         os.makedirs(log_dir, exist_ok=True)
     
     def _get_elapsed_time(self) -> float:
-        """获取从开始到现在的耗时（秒）"""
+        """Return elapsed seconds since the logger was created."""
         return (datetime.now() - self.start_time).total_seconds()
     
     def log(
-        self, 
-        action: str, 
+        self,
+        action: str,
         stage: str,
         details: Dict[str, Any],
         section_title: str = None,
         section_index: int = None
     ):
         """
-        记录一条日志
-        
+        Write one log entry.
+
         Args:
-            action: 动作类型，如 'start', 'tool_call', 'llm_response', 'section_complete' 等
-            stage: 当前阶段，如 'planning', 'generating', 'completed'
-            details: 详细内容字典，不截断
-            section_title: 当前章节标题（可选）
-            section_index: 当前章节索引（可选）
+            action: Action type, e.g. 'start', 'tool_call', 'llm_response', 'section_complete'.
+            stage: Current stage, e.g. 'planning', 'generating', 'completed'.
+            details: Detail dict — not truncated.
+            section_title: Current section title (optional).
+            section_index: Current section index (optional).
         """
         log_entry = {
             "timestamp": datetime.now().isoformat(),
@@ -92,12 +94,12 @@ class ReportLogger:
             "details": details
         }
         
-        # 追加写入 JSONL 文件
+        # Append to the JSONL file
         with open(self.log_file_path, 'a', encoding='utf-8') as f:
             f.write(json.dumps(log_entry, ensure_ascii=False) + '\n')
     
     def log_start(self, simulation_id: str, graph_id: str, simulation_requirement: str):
-        """记录报告生成开始"""
+        """Log the start of report generation."""
         self.log(
             action="report_start",
             stage="pending",
@@ -105,7 +107,7 @@ class ReportLogger:
                 "simulation_id": simulation_id,
                 "graph_id": graph_id,
                 "simulation_requirement": simulation_requirement,
-                "message": "报告生成任务开始"
+                "message": "Report generation task started"
             }
         )
     
@@ -311,23 +313,24 @@ class ReportConsoleLogger:
     这些日志与 agent_log.jsonl 不同，是纯文本格式的控制台输出。
     """
     
-    def __init__(self, report_id: str):
+    def __init__(self, report_id: str, tenant_id: str):
         """
         初始化控制台日志记录器
-        
+
         Args:
             report_id: 报告ID，用于确定日志文件路径
+            tenant_id: Tenant ID for scoping the storage path.
         """
         self.report_id = report_id
         self.log_file_path = os.path.join(
-            Config.UPLOAD_FOLDER, 'reports', report_id, 'console_log.txt'
+            ReportManager._get_reports_dir(tenant_id), report_id, 'console_log.txt'
         )
         self._ensure_log_file()
         self._file_handler = None
         self._setup_file_handler()
     
     def _ensure_log_file(self):
-        """确保日志文件所在目录存在"""
+        """Ensure the directory containing the log file exists."""
         log_dir = os.path.dirname(self.log_file_path)
         os.makedirs(log_dir, exist_ok=True)
     
@@ -881,33 +884,36 @@ class ReportAgent:
     MAX_TOOL_CALLS_PER_CHAT = 2
     
     def __init__(
-        self, 
+        self,
         graph_id: str,
         simulation_id: str,
         simulation_requirement: str,
+        tenant_id: str,
         llm_client: Optional[LLMClient] = None,
         zep_tools: Optional[ZepToolsService] = None
     ):
         """
         初始化Report Agent
-        
+
         Args:
             graph_id: 图谱ID
             simulation_id: 模拟ID
             simulation_requirement: 模拟需求描述
+            tenant_id: Tenant ID for scoping report storage
             llm_client: LLM客户端（可选）
             zep_tools: Zep工具服务（可选）
         """
         self.graph_id = graph_id
         self.simulation_id = simulation_id
         self.simulation_requirement = simulation_requirement
-        
+        self.tenant_id = tenant_id
+
         self.llm = llm_client or LLMClient()
         self.zep_tools = zep_tools or ZepToolsService()
-        
+
         # 工具定义
         self.tools = self._define_tools()
-        
+
         # 日志记录器（在 generate_report 中初始化）
         self.report_logger: Optional[ReportLogger] = None
         # 控制台日志记录器（在 generate_report 中初始化）

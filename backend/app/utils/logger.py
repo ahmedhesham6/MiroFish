@@ -1,6 +1,6 @@
 """
-日志配置模块
-提供统一的日志管理，同时输出到控制台和文件
+Logging configuration module.
+Provides unified log management with output to both console and file.
 """
 
 import os

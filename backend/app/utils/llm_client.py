@@ -1,6 +1,6 @@
 """
-LLM客户端封装
-统一使用OpenAI格式调用
+LLM client wrapper.
+Provides a unified OpenAI-compatible interface for all LLM calls.
 """
 
 import json

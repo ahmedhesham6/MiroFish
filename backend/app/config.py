@@ -1,6 +1,6 @@
 """
-配置管理
-统一从项目根目录的 .env 文件加载配置
+Configuration management.
+Loads all configuration from the .env file at the project root.
 """
 
 import os
@@ -62,6 +62,10 @@ class Config:
     REPORT_AGENT_MAX_TOOL_CALLS = int(os.environ.get('REPORT_AGENT_MAX_TOOL_CALLS', '5'))
     REPORT_AGENT_MAX_REFLECTION_ROUNDS = int(os.environ.get('REPORT_AGENT_MAX_REFLECTION_ROUNDS', '2'))
     REPORT_AGENT_TEMPERATURE = float(os.environ.get('REPORT_AGENT_TEMPERATURE', '0.5'))
+
+    # JWT配置
+    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'dev-secret-change-me')
+    JWT_EXPIRY_HOURS = int(os.environ.get('JWT_EXPIRY_HOURS', '48'))
     
     @classmethod
     def validate(cls):

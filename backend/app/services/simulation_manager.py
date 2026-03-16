@@ -1,7 +1,7 @@
 """
-OASIS模拟管理器
-管理Twitter和Reddit双平台并行模拟
-使用预设脚本 + LLM智能生成配置参数
+OASIS Simulation Manager
+Manages parallel Twitter and Reddit dual-platform simulations
+Uses preset scripts + LLM-driven config parameter generation
 """
 
 import os
@@ -22,60 +22,60 @@ logger = get_logger('mirofish.simulation')
 
 
 class SimulationStatus(str, Enum):
-    """模拟状态"""
+    """Simulation status"""
     CREATED = "created"
     PREPARING = "preparing"
     READY = "ready"
     RUNNING = "running"
     PAUSED = "paused"
-    STOPPED = "stopped"      # 模拟被手动停止
-    COMPLETED = "completed"  # 模拟自然完成
+    STOPPED = "stopped"      # Simulation stopped manually
+    COMPLETED = "completed"  # Simulation finished naturally
     FAILED = "failed"
 
 
 class PlatformType(str, Enum):
-    """平台类型"""
+    """Platform type"""
     TWITTER = "twitter"
     REDDIT = "reddit"
 
 
 @dataclass
 class SimulationState:
-    """模拟状态"""
+    """Simulation state"""
     simulation_id: str
     project_id: str
     graph_id: str
-    
-    # 平台启用状态
+
+    # Platform enable flags
     enable_twitter: bool = True
     enable_reddit: bool = True
-    
-    # 状态
+
+    # Status
     status: SimulationStatus = SimulationStatus.CREATED
-    
-    # 准备阶段数据
+
+    # Preparation-stage data
     entities_count: int = 0
     profiles_count: int = 0
     entity_types: List[str] = field(default_factory=list)
-    
-    # 配置生成信息
+
+    # Config generation info
     config_generated: bool = False
     config_reasoning: str = ""
-    
-    # 运行时数据
+
+    # Runtime data
     current_round: int = 0
     twitter_status: str = "not_started"
     reddit_status: str = "not_started"
-    
-    # 时间戳
+
+    # Timestamps
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
     updated_at: str = field(default_factory=lambda: datetime.now().isoformat())
-    
-    # 错误信息
+
+    # Error info
     error: Optional[str] = None
-    
+
     def to_dict(self) -> Dict[str, Any]:
-        """完整状态字典（内部使用）"""
+        """Full state dictionary (internal use)"""
         return {
             "simulation_id": self.simulation_id,
             "project_id": self.project_id,
@@ -97,7 +97,7 @@ class SimulationState:
         }
     
     def to_simple_dict(self) -> Dict[str, Any]:
-        """简化状态字典（API返回使用）"""
+        """Simplified state dictionary (used in API responses)"""
         return {
             "simulation_id": self.simulation_id,
             "project_id": self.project_id,
@@ -113,36 +113,34 @@ class SimulationState:
 
 class SimulationManager:
     """
-    模拟管理器
-    
-    核心功能：
-    1. 从Zep图谱读取实体并过滤
-    2. 生成OASIS Agent Profile
-    3. 使用LLM智能生成模拟配置参数
-    4. 准备预设脚本所需的所有文件
+    Simulation Manager
+
+    Core responsibilities:
+    1. Read and filter entities from the Zep graph
+    2. Generate OASIS Agent Profiles
+    3. Use an LLM to intelligently generate simulation config parameters
+    4. Prepare all files required by the preset scripts
     """
-    
-    # 模拟数据存储目录
-    SIMULATION_DATA_DIR = os.path.join(
-        os.path.dirname(__file__), 
-        '../../uploads/simulations'
-    )
-    
-    def __init__(self):
-        # 确保目录存在
+
+    def __init__(self, tenant_id: str):
+        from ..models.tenant import TenantManager
+        self.SIMULATION_DATA_DIR = os.path.join(
+            TenantManager._get_tenant_data_dir(tenant_id), 'simulations'
+        )
+        # Ensure directory exists
         os.makedirs(self.SIMULATION_DATA_DIR, exist_ok=True)
-        
-        # 内存中的模拟状态缓存
+
+        # In-memory simulation state cache
         self._simulations: Dict[str, SimulationState] = {}
     
     def _get_simulation_dir(self, simulation_id: str) -> str:
-        """获取模拟数据目录"""
+        """Return the data directory for a simulation"""
         sim_dir = os.path.join(self.SIMULATION_DATA_DIR, simulation_id)
         os.makedirs(sim_dir, exist_ok=True)
         return sim_dir
     
     def _save_simulation_state(self, state: SimulationState):
-        """保存模拟状态到文件"""
+        """Persist simulation state to file"""
         sim_dir = self._get_simulation_dir(state.simulation_id)
         state_file = os.path.join(sim_dir, "state.json")
         

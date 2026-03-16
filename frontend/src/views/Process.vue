@@ -1,13 +1,13 @@
 <template>
   <div class="process-page">
-    <!-- 顶部导航栏 -->
+    <!-- Top navigation bar -->
     <nav class="navbar">
       <div class="nav-brand" @click="goHome">MIROFISH</div>
-      
-      <!-- 中间步骤指示器 -->
+
+      <!-- Center step indicator -->
       <div class="nav-center">
         <div class="step-badge">STEP 01</div>
-        <div class="step-name">图谱构建</div>
+        <div class="step-name">Graph Build</div>
       </div>
 
       <div class="nav-status">
@@ -16,27 +16,27 @@
       </div>
     </nav>
 
-    <!-- 主内容区 -->
+    <!-- Main content area -->
     <div class="main-content">
-      <!-- 左侧: 实时图谱展示 -->
+      <!-- Left panel: Live graph view -->
       <div class="left-panel" :class="{ 'full-screen': isFullScreen }">
         <div class="panel-header">
           <div class="header-left">
             <span class="header-deco">◆</span>
-            <span class="header-title">实时知识图谱</span>
+            <span class="header-title">Live Knowledge Graph</span>
           </div>
           <div class="header-right">
             <template v-if="graphData">
-              <span class="stat-item">{{ graphData.node_count || graphData.nodes?.length || 0 }} 节点</span>
+              <span class="stat-item">{{ graphData.node_count || graphData.nodes?.length || 0 }} nodes</span>
               <span class="stat-divider">|</span>
-              <span class="stat-item">{{ graphData.edge_count || graphData.edges?.length || 0 }} 关系</span>
+              <span class="stat-item">{{ graphData.edge_count || graphData.edges?.length || 0 }} edges</span>
               <span class="stat-divider">|</span>
             </template>
             <div class="action-buttons">
-                <button class="action-btn" @click="refreshGraph" :disabled="graphLoading" title="刷新图谱">
+                <button class="action-btn" @click="refreshGraph" :disabled="graphLoading" title="Refresh graph">
                   <span class="icon-refresh" :class="{ 'spinning': graphLoading }">↻</span>
                 </button>
-                <button class="action-btn" @click="toggleFullScreen" :title="isFullScreen ? '退出全屏' : '全屏显示'">
+                <button class="action-btn" @click="toggleFullScreen" :title="isFullScreen ? 'Exit fullscreen' : 'Enter fullscreen'">
                   <span class="icon-fullscreen">{{ isFullScreen ? '↙' : '↗' }}</span>
                 </button>
             </div>

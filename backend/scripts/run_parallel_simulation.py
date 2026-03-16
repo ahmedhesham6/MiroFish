@@ -1,33 +1,33 @@
 """
-OASIS 双平台并行模拟预设脚本
-同时运行Twitter和Reddit模拟，读取相同的配置文件
+OASIS dual-platform parallel simulation script
+Runs Twitter and Reddit simulations simultaneously, reading the same config file
 
-功能特性:
-- 双平台（Twitter + Reddit）并行模拟
-- 完成模拟后不立即关闭环境，进入等待命令模式
-- 支持通过IPC接收Interview命令
-- 支持单个Agent采访和批量采访
-- 支持远程关闭环境命令
+Features:
+- Dual-platform (Twitter + Reddit) parallel simulation
+- Keeps the environment alive after simulation completes, entering command-wait mode
+- Supports receiving Interview commands over IPC
+- Supports single-agent and batch interviews
+- Supports remote environment shutdown command
 
-使用方式:
+Usage:
     python run_parallel_simulation.py --config simulation_config.json
-    python run_parallel_simulation.py --config simulation_config.json --no-wait  # 完成后立即关闭
+    python run_parallel_simulation.py --config simulation_config.json --no-wait  # shut down immediately after completion
     python run_parallel_simulation.py --config simulation_config.json --twitter-only
     python run_parallel_simulation.py --config simulation_config.json --reddit-only
 
-日志结构:
+Log structure:
     sim_xxx/
     ├── twitter/
-    │   └── actions.jsonl    # Twitter 平台动作日志
+    │   └── actions.jsonl    # Twitter platform action log
     ├── reddit/
-    │   └── actions.jsonl    # Reddit 平台动作日志
-    ├── simulation.log       # 主模拟进程日志
-    └── run_state.json       # 运行状态（API 查询用）
+    │   └── actions.jsonl    # Reddit platform action log
+    ├── simulation.log       # Main simulation process log
+    └── run_state.json       # Run state (for API queries)
 """
 
 # ============================================================
-# 解决 Windows 编码问题：在所有 import 之前设置 UTF-8 编码
-# 这是为了修复 OASIS 第三方库读取文件时未指定编码的问题
+# Fix Windows encoding issues: set UTF-8 encoding before all imports
+# This addresses OASIS third-party library file reads that omit an explicit encoding
 # ============================================================
 import sys
 import os

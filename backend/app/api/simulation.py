@@ -1,6 +1,6 @@
 """
-模拟相关API路由
-Step2: Zep实体读取与过滤、OASIS模拟准备与运行（全程自动化）
+Simulation-related API routes
+Step2: Zep entity reading and filtering, OASIS simulation preparation and execution (fully automated)
 """
 
 import os
@@ -15,58 +15,60 @@ from ..services.simulation_manager import SimulationManager, SimulationStatus
 from ..services.simulation_runner import SimulationRunner, RunnerStatus
 from ..utils.logger import get_logger
 from ..models.project import ProjectManager
+from ..middleware.auth import requires_auth
 
 logger = get_logger('mirofish.api.simulation')
 
 
-# Interview prompt 优化前缀
-# 添加此前缀可以避免Agent调用工具，直接用文本回复
-INTERVIEW_PROMPT_PREFIX = "结合你的人设、所有的过往记忆与行动，不调用任何工具直接用文本回复我："
+# Interview prompt optimization prefix
+# Adding this prefix prevents the Agent from calling tools and makes it respond with plain text
+INTERVIEW_PROMPT_PREFIX = "Based on your persona and all past memories and actions, respond to me directly with text without calling any tools: "
 
 
 def optimize_interview_prompt(prompt: str) -> str:
     """
-    优化Interview提问，添加前缀避免Agent调用工具
-    
+    Optimize an interview question by prepending the prefix to prevent the Agent from calling tools.
+
     Args:
-        prompt: 原始提问
-        
+        prompt: The original question
+
     Returns:
-        优化后的提问
+        The optimized question
     """
     if not prompt:
         return prompt
-    # 避免重复添加前缀
+    # Avoid adding the prefix more than once
     if prompt.startswith(INTERVIEW_PROMPT_PREFIX):
         return prompt
     return f"{INTERVIEW_PROMPT_PREFIX}{prompt}"
 
 
-# ============== 实体读取接口 ==============
+# ============== Entity Read Endpoints ==============
 
+@requires_auth
 @simulation_bp.route('/entities/<graph_id>', methods=['GET'])
 def get_graph_entities(graph_id: str):
     """
-    获取图谱中的所有实体（已过滤）
-    
-    只返回符合预定义实体类型的节点（Labels不只是Entity的节点）
-    
-    Query参数：
-        entity_types: 逗号分隔的实体类型列表（可选，用于进一步过滤）
-        enrich: 是否获取相关边信息（默认true）
+    Retrieve all filtered entities from a graph.
+
+    Only returns nodes matching predefined entity types (nodes whose Labels are not only "Entity").
+
+    Query parameters:
+        entity_types: Comma-separated list of entity types (optional, for further filtering)
+        enrich: Whether to fetch related edge information (default true)
     """
     try:
         if not Config.ZEP_API_KEY:
             return jsonify({
                 "success": False,
-                "error": "ZEP_API_KEY未配置"
+                "error": "ZEP_API_KEY is not configured"
             }), 500
-        
+
         entity_types_str = request.args.get('entity_types', '')
         entity_types = [t.strip() for t in entity_types_str.split(',') if t.strip()] if entity_types_str else None
         enrich = request.args.get('enrich', 'true').lower() == 'true'
-        
-        logger.info(f"获取图谱实体: graph_id={graph_id}, entity_types={entity_types}, enrich={enrich}")
+
+        logger.info(f"Fetching graph entities: graph_id={graph_id}, entity_types={entity_types}, enrich={enrich}")
         
         reader = ZepEntityReader()
         result = reader.filter_defined_entities(
@@ -81,7 +83,7 @@ def get_graph_entities(graph_id: str):
         })
         
     except Exception as e:
-        logger.error(f"获取图谱实体失败: {str(e)}")
+        logger.error(f"Failed to fetch graph entities: {str(e)}")
         return jsonify({
             "success": False,
             "error": str(e),
@@ -89,23 +91,24 @@ def get_graph_entities(graph_id: str):
         }), 500
 
 
+@requires_auth
 @simulation_bp.route('/entities/<graph_id>/<entity_uuid>', methods=['GET'])
 def get_entity_detail(graph_id: str, entity_uuid: str):
-    """获取单个实体的详细信息"""
+    """Retrieve detailed information for a single entity."""
     try:
         if not Config.ZEP_API_KEY:
             return jsonify({
                 "success": False,
-                "error": "ZEP_API_KEY未配置"
+                "error": "ZEP_API_KEY is not configured"
             }), 500
-        
+
         reader = ZepEntityReader()
         entity = reader.get_entity_with_context(graph_id, entity_uuid)
-        
+
         if not entity:
             return jsonify({
                 "success": False,
-                "error": f"实体不存在: {entity_uuid}"
+                "error": f"Entity not found: {entity_uuid}"
             }), 404
         
         return jsonify({
@@ -114,7 +117,7 @@ def get_entity_detail(graph_id: str, entity_uuid: str):
         })
         
     except Exception as e:
-        logger.error(f"获取实体详情失败: {str(e)}")
+        logger.error(f"Failed to fetch entity detail: {str(e)}")
         return jsonify({
             "success": False,
             "error": str(e),
@@ -122,14 +125,15 @@ def get_entity_detail(graph_id: str, entity_uuid: str):
         }), 500
 
 
+@requires_auth
 @simulation_bp.route('/entities/<graph_id>/by-type/<entity_type>', methods=['GET'])
 def get_entities_by_type(graph_id: str, entity_type: str):
-    """获取指定类型的所有实体"""
+    """Retrieve all entities of the specified type."""
     try:
         if not Config.ZEP_API_KEY:
             return jsonify({
                 "success": False,
-                "error": "ZEP_API_KEY未配置"
+                "error": "ZEP_API_KEY is not configured"
             }), 500
         
         enrich = request.args.get('enrich', 'true').lower() == 'true'
@@ -151,7 +155,7 @@ def get_entities_by_type(graph_id: str, entity_type: str):
         })
         
     except Exception as e:
-        logger.error(f"获取实体失败: {str(e)}")
+        logger.error(f"Failed to fetch entities: {str(e)}")
         return jsonify({
             "success": False,
             "error": str(e),
@@ -159,8 +163,9 @@ def get_entities_by_type(graph_id: str, entity_type: str):
         }), 500
 
 
-# ============== 模拟管理接口 ==============
+# ============== Simulation Management Endpoints ==============
 
+@requires_auth
 @simulation_bp.route('/create', methods=['POST'])
 def create_simulation():
     """
@@ -355,6 +360,7 @@ def _check_simulation_prepared(simulation_id: str) -> tuple:
         return False, {"reason": f"读取状态文件失败: {str(e)}"}
 
 
+@requires_auth
 @simulation_bp.route('/prepare', methods=['POST'])
 def prepare_simulation():
     """
@@ -634,6 +640,7 @@ def prepare_simulation():
         }), 500
 
 
+@requires_auth
 @simulation_bp.route('/prepare/status', methods=['POST'])
 def get_prepare_status():
     """
@@ -747,6 +754,7 @@ def get_prepare_status():
         }), 500
 
 
+@requires_auth
 @simulation_bp.route('/<simulation_id>', methods=['GET'])
 def get_simulation(simulation_id: str):
     """获取模拟状态"""
@@ -780,6 +788,7 @@ def get_simulation(simulation_id: str):
         }), 500
 
 
+@requires_auth
 @simulation_bp.route('/list', methods=['GET'])
 def list_simulations():
     """
@@ -868,6 +877,7 @@ def _get_report_id_for_simulation(simulation_id: str) -> str:
         return None
 
 
+@requires_auth
 @simulation_bp.route('/history', methods=['GET'])
 def get_simulation_history():
     """
@@ -982,6 +992,7 @@ def get_simulation_history():
         }), 500
 
 
+@requires_auth
 @simulation_bp.route('/<simulation_id>/profiles', methods=['GET'])
 def get_simulation_profiles(simulation_id: str):
     """
@@ -1020,6 +1031,7 @@ def get_simulation_profiles(simulation_id: str):
         }), 500
 
 
+@requires_auth
 @simulation_bp.route('/<simulation_id>/profiles/realtime', methods=['GET'])
 def get_simulation_profiles_realtime(simulation_id: str):
     """
@@ -1130,6 +1142,7 @@ def get_simulation_profiles_realtime(simulation_id: str):
         }), 500
 
 
+@requires_auth
 @simulation_bp.route('/<simulation_id>/config/realtime', methods=['GET'])
 def get_simulation_config_realtime(simulation_id: str):
     """
@@ -1250,6 +1263,7 @@ def get_simulation_config_realtime(simulation_id: str):
         }), 500
 
 
+@requires_auth
 @simulation_bp.route('/<simulation_id>/config', methods=['GET'])
 def get_simulation_config(simulation_id: str):
     """
@@ -1286,6 +1300,7 @@ def get_simulation_config(simulation_id: str):
         }), 500
 
 
+@requires_auth
 @simulation_bp.route('/<simulation_id>/config/download', methods=['GET'])
 def download_simulation_config(simulation_id: str):
     """下载模拟配置文件"""
@@ -1315,6 +1330,7 @@ def download_simulation_config(simulation_id: str):
         }), 500
 
 
+@requires_auth
 @simulation_bp.route('/script/<script_name>/download', methods=['GET'])
 def download_simulation_script(script_name: str):
     """
@@ -1369,6 +1385,7 @@ def download_simulation_script(script_name: str):
 
 # ============== Profile生成接口（独立使用） ==============
 
+@requires_auth
 @simulation_bp.route('/generate-profiles', methods=['POST'])
 def generate_profiles():
     """
@@ -1443,6 +1460,7 @@ def generate_profiles():
 
 # ============== 模拟运行控制接口 ==============
 
+@requires_auth
 @simulation_bp.route('/start', methods=['POST'])
 def start_simulation():
     """
@@ -1636,6 +1654,7 @@ def start_simulation():
         }), 500
 
 
+@requires_auth
 @simulation_bp.route('/stop', methods=['POST'])
 def stop_simulation():
     """
@@ -1697,6 +1716,7 @@ def stop_simulation():
 
 # ============== 实时状态监控接口 ==============
 
+@requires_auth
 @simulation_bp.route('/<simulation_id>/run-status', methods=['GET'])
 def get_run_status(simulation_id: str):
     """
@@ -1755,6 +1775,7 @@ def get_run_status(simulation_id: str):
         }), 500
 
 
+@requires_auth
 @simulation_bp.route('/<simulation_id>/run-status/detail', methods=['GET'])
 def get_run_status_detail(simulation_id: str):
     """
@@ -1856,6 +1877,7 @@ def get_run_status_detail(simulation_id: str):
         }), 500
 
 
+@requires_auth
 @simulation_bp.route('/<simulation_id>/actions', methods=['GET'])
 def get_simulation_actions(simulation_id: str):
     """
@@ -1910,6 +1932,7 @@ def get_simulation_actions(simulation_id: str):
         }), 500
 
 
+@requires_auth
 @simulation_bp.route('/<simulation_id>/timeline', methods=['GET'])
 def get_simulation_timeline(simulation_id: str):
     """
@@ -1950,6 +1973,7 @@ def get_simulation_timeline(simulation_id: str):
         }), 500
 
 
+@requires_auth
 @simulation_bp.route('/<simulation_id>/agent-stats', methods=['GET'])
 def get_agent_stats(simulation_id: str):
     """
@@ -1979,6 +2003,7 @@ def get_agent_stats(simulation_id: str):
 
 # ============== 数据库查询接口 ==============
 
+@requires_auth
 @simulation_bp.route('/<simulation_id>/posts', methods=['GET'])
 def get_simulation_posts(simulation_id: str):
     """
@@ -2057,6 +2082,7 @@ def get_simulation_posts(simulation_id: str):
         }), 500
 
 
+@requires_auth
 @simulation_bp.route('/<simulation_id>/comments', methods=['GET'])
 def get_simulation_comments(simulation_id: str):
     """
@@ -2134,6 +2160,7 @@ def get_simulation_comments(simulation_id: str):
 
 # ============== Interview 采访接口 ==============
 
+@requires_auth
 @simulation_bp.route('/interview', methods=['POST'])
 def interview_agent():
     """
@@ -2263,6 +2290,7 @@ def interview_agent():
         }), 500
 
 
+@requires_auth
 @simulation_bp.route('/interview/batch', methods=['POST'])
 def interview_agents_batch():
     """
@@ -2401,6 +2429,7 @@ def interview_agents_batch():
         }), 500
 
 
+@requires_auth
 @simulation_bp.route('/interview/all', methods=['POST'])
 def interview_all_agents():
     """
@@ -2504,6 +2533,7 @@ def interview_all_agents():
         }), 500
 
 
+@requires_auth
 @simulation_bp.route('/interview/history', methods=['POST'])
 def get_interview_history():
     """
@@ -2576,6 +2606,7 @@ def get_interview_history():
         }), 500
 
 
+@requires_auth
 @simulation_bp.route('/env-status', methods=['POST'])
 def get_env_status():
     """
@@ -2641,6 +2672,7 @@ def get_env_status():
         }), 500
 
 
+@requires_auth
 @simulation_bp.route('/close-env', methods=['POST'])
 def close_simulation_env():
     """

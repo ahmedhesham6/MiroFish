@@ -1,11 +1,11 @@
 """
-OASIS Agent Profile生成器
-将Zep图谱中的实体转换为OASIS模拟平台所需的Agent Profile格式
+OASIS Agent Profile Generator
+Converts entities from the Zep knowledge graph into Agent Profile format required by the OASIS simulation platform.
 
-优化改进：
-1. 调用Zep检索功能二次丰富节点信息
-2. 优化提示词生成非常详细的人设
-3. 区分个人实体和抽象群体实体
+Enhancements:
+1. Calls Zep retrieval to further enrich node information
+2. Optimized prompts for generating highly detailed personas
+3. Distinguishes between individual entities and abstract group entities
 """
 
 import json
@@ -27,49 +27,49 @@ logger = get_logger('mirofish.oasis_profile')
 
 @dataclass
 class OasisAgentProfile:
-    """OASIS Agent Profile数据结构"""
-    # 通用字段
+    """OASIS Agent Profile data structure"""
+    # Common fields
     user_id: int
     user_name: str
     name: str
     bio: str
     persona: str
-    
-    # 可选字段 - Reddit风格
+
+    # Optional fields - Reddit style
     karma: int = 1000
-    
-    # 可选字段 - Twitter风格
+
+    # Optional fields - Twitter style
     friend_count: int = 100
     follower_count: int = 150
     statuses_count: int = 500
-    
-    # 额外人设信息
+
+    # Additional persona information
     age: Optional[int] = None
     gender: Optional[str] = None
     mbti: Optional[str] = None
     country: Optional[str] = None
     profession: Optional[str] = None
     interested_topics: List[str] = field(default_factory=list)
-    
-    # 来源实体信息
+
+    # Source entity information
     source_entity_uuid: Optional[str] = None
     source_entity_type: Optional[str] = None
     
     created_at: str = field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d"))
     
     def to_reddit_format(self) -> Dict[str, Any]:
-        """转换为Reddit平台格式"""
+        """Convert to Reddit platform format"""
         profile = {
             "user_id": self.user_id,
-            "username": self.user_name,  # OASIS 库要求字段名为 username（无下划线）
+            "username": self.user_name,  # OASIS library requires field name "username" (no underscore)
             "name": self.name,
             "bio": self.bio,
             "persona": self.persona,
             "karma": self.karma,
             "created_at": self.created_at,
         }
-        
-        # 添加额外人设信息（如果有）
+
+        # Add additional persona fields if present
         if self.age:
             profile["age"] = self.age
         if self.gender:
@@ -86,10 +86,10 @@ class OasisAgentProfile:
         return profile
     
     def to_twitter_format(self) -> Dict[str, Any]:
-        """转换为Twitter平台格式"""
+        """Convert to Twitter platform format"""
         profile = {
             "user_id": self.user_id,
-            "username": self.user_name,  # OASIS 库要求字段名为 username（无下划线）
+            "username": self.user_name,  # OASIS library requires field name "username" (no underscore)
             "name": self.name,
             "bio": self.bio,
             "persona": self.persona,
@@ -98,8 +98,8 @@ class OasisAgentProfile:
             "statuses_count": self.statuses_count,
             "created_at": self.created_at,
         }
-        
-        # 添加额外人设信息
+
+        # Add additional persona fields
         if self.age:
             profile["age"] = self.age
         if self.gender:
@@ -116,7 +116,7 @@ class OasisAgentProfile:
         return profile
     
     def to_dict(self) -> Dict[str, Any]:
-        """转换为完整字典格式"""
+        """Convert to full dictionary format"""
         return {
             "user_id": self.user_id,
             "user_name": self.user_name,
@@ -141,17 +141,17 @@ class OasisAgentProfile:
 
 class OasisProfileGenerator:
     """
-    OASIS Profile生成器
-    
-    将Zep图谱中的实体转换为OASIS模拟所需的Agent Profile
-    
-    优化特性：
-    1. 调用Zep图谱检索功能获取更丰富的上下文
-    2. 生成非常详细的人设（包括基本信息、职业经历、性格特征、社交媒体行为等）
-    3. 区分个人实体和抽象群体实体
+    OASIS Profile Generator
+
+    Converts entities from the Zep knowledge graph into Agent Profiles required for OASIS simulation.
+
+    Features:
+    1. Calls Zep graph retrieval to obtain richer context
+    2. Generates highly detailed personas (including background, career, personality, social media behavior, etc.)
+    3. Distinguishes between individual entities and abstract group entities
     """
-    
-    # MBTI类型列表
+
+    # MBTI type list
     MBTI_TYPES = [
         "INTJ", "INTP", "ENTJ", "ENTP",
         "INFJ", "INFP", "ENFJ", "ENFP",
@@ -159,19 +159,19 @@ class OasisProfileGenerator:
         "ISTP", "ISFP", "ESTP", "ESFP"
     ]
     
-    # 常见国家列表
+    # Common countries list
     COUNTRIES = [
         "China", "US", "UK", "Japan", "Germany", "France", 
         "Canada", "Australia", "Brazil", "India", "South Korea"
     ]
     
-    # 个人类型实体（需要生成具体人设）
+    # Individual entity types (require concrete persona generation)
     INDIVIDUAL_ENTITY_TYPES = [
         "student", "alumni", "professor", "person", "publicfigure", 
         "expert", "faculty", "official", "journalist", "activist"
     ]
     
-    # 群体/机构类型实体（需要生成群体代表人设）
+    # Group/institutional entity types (require representative account persona generation)
     GROUP_ENTITY_TYPES = [
         "university", "governmentagency", "organization", "ngo", 
         "mediaoutlet", "company", "institution", "group", "community"
@@ -190,7 +190,7 @@ class OasisProfileGenerator:
         self.model_name = model_name or Config.LLM_MODEL_NAME
         
         if not self.api_key:
-            raise ValueError("LLM_API_KEY 未配置")
+            raise ValueError("LLM_API_KEY is not configured")
         
         self.client = OpenAI(
             api_key=self.api_key,

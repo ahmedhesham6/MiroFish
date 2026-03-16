@@ -1,11 +1,11 @@
 """
-模拟IPC通信模块
-用于Flask后端和模拟脚本之间的进程间通信
+Simulation IPC Communication Module
+Handles inter-process communication between the Flask backend and simulation scripts
 
-通过文件系统实现简单的命令/响应模式：
-1. Flask写入命令到 commands/ 目录
-2. 模拟脚本轮询命令目录，执行命令并写入响应到 responses/ 目录
-3. Flask轮询响应目录获取结果
+Implements a simple command/response pattern via the filesystem:
+1. Flask writes commands to the commands/ directory
+2. The simulation script polls the command directory, executes commands, and writes responses to the responses/ directory
+3. Flask polls the responses directory to collect results
 """
 
 import os

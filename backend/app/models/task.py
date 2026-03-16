@@ -1,6 +1,6 @@
 """
-任务状态管理
-用于跟踪长时间运行的任务（如图谱构建）
+Task state management.
+Used to track long-running tasks such as graph construction.
 """
 
 import uuid
