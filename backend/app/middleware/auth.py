@@ -60,12 +60,32 @@ def requires_auth(f):
     return decorated
 
 
+def requires_active_subscription(f):
+    """
+    Decorator that requires the tenant to have an active subscription.
+    Must be used after @requires_auth so g.current_tenant is available.
+    No free tier — every tenant must pay to use the SaaS.
+    """
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        tenant = g.current_tenant
+        if tenant.subscription_status not in ("active", "canceled"):
+            # "canceled" still has access until billing period ends
+            # "expired" and "none" are blocked
+            return jsonify({
+                "error": "Active subscription required",
+                "subscription_status": tenant.subscription_status,
+            }), 403
+        return f(*args, **kwargs)
+    return decorated
+
+
 def requires_plan(min_plan: str):
     """
     Decorator that requires the tenant to be on at least min_plan.
     Must be used after @requires_auth so g.current_tenant is available.
 
-    Plan order: free < starter < pro < enterprise
+    Plan order: starter < pro < enterprise
     """
     def decorator(f):
         @wraps(f)

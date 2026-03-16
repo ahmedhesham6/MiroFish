@@ -17,20 +17,12 @@ from ..config import Config
 
 
 class TenantPlan(str, Enum):
-    FREE = "free"
     STARTER = "starter"
     PRO = "pro"
     ENTERPRISE = "enterprise"
 
 
 PLAN_LIMITS = {
-    TenantPlan.FREE: {
-        "max_projects": 3,
-        "max_simulations_per_month": 5,
-        "max_plugins": 2,
-        "graph_memory_enabled": False,
-        "byok_enabled": False,
-    },
     TenantPlan.STARTER: {
         "max_projects": 20,
         "max_simulations_per_month": 20,
@@ -55,7 +47,7 @@ PLAN_LIMITS = {
 }
 
 # Plan order for comparison (lower index = lower tier)
-PLAN_ORDER = [TenantPlan.FREE, TenantPlan.STARTER, TenantPlan.PRO, TenantPlan.ENTERPRISE]
+PLAN_ORDER = [TenantPlan.STARTER, TenantPlan.PRO, TenantPlan.ENTERPRISE]
 
 
 @dataclass
@@ -136,14 +128,14 @@ class TenantConfig:
 class Tenant:
     tenant_id: str
     name: str
-    plan: TenantPlan = TenantPlan.FREE
+    plan: TenantPlan = TenantPlan.STARTER
     config: TenantConfig = field(default_factory=TenantConfig)
     enabled_plugins: List[str] = field(default_factory=list)
     plugin_configs: Dict[str, Dict] = field(default_factory=dict)
     # Polar billing fields
     polar_customer_id: Optional[str] = None
     polar_subscription_id: Optional[str] = None
-    subscription_status: str = "none"  # none, active, canceled
+    subscription_status: str = "none"  # none, active, canceled, expired
     usage: Dict[str, Any] = field(default_factory=lambda: {
         "simulations_this_month": 0,
         "usage_month": "",
@@ -169,9 +161,11 @@ class Tenant:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'Tenant':
-        plan = data.get("plan", "free")
-        if isinstance(plan, str):
-            plan = TenantPlan(plan)
+        plan_raw = data.get("plan", "starter")
+        # Migrate legacy "free" plans to "starter"
+        if plan_raw == "free":
+            plan_raw = "starter"
+        plan = TenantPlan(plan_raw) if isinstance(plan_raw, str) else plan_raw
         return cls(
             tenant_id=data["tenant_id"],
             name=data.get("name", ""),
@@ -188,7 +182,7 @@ class Tenant:
         )
 
     def get_limits(self) -> Dict[str, Any]:
-        return PLAN_LIMITS.get(self.plan, PLAN_LIMITS[TenantPlan.FREE])
+        return PLAN_LIMITS.get(self.plan, PLAN_LIMITS[TenantPlan.STARTER])
 
     def reset_monthly_usage_if_needed(self):
         """Reset simulation counter if we're in a new month."""

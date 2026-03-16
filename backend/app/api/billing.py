@@ -136,7 +136,7 @@ def _on_subscription_active(subscription) -> None:
     # Map Polar product name to internal plan
     product = getattr(subscription, "product", None)
     product_name = (getattr(product, "name", "") or "").lower()
-    plan = TenantPlan.FREE
+    plan = TenantPlan.STARTER
     for key, val in _POLAR_PRODUCT_PLAN_MAP.items():
         if key in product_name:
             plan = val
@@ -169,10 +169,10 @@ def _on_subscription_canceled(subscription) -> None:
         logger.warning("subscription.canceled: tenant not found: %s", tenant_id)
         return
 
-    tenant.plan = TenantPlan.FREE
+    # Keep current plan until billing period ends; mark as canceled
     tenant.subscription_status = "canceled"
     TenantManager.save_tenant(tenant)
-    logger.info("Tenant %s downgraded to FREE (subscription canceled)", tenant_id)
+    logger.info("Tenant %s subscription canceled (plan %s retained until expiry)", tenant_id, tenant.plan.value)
 
 
 def _on_customer_state_changed(customer_state) -> None:
@@ -193,7 +193,7 @@ def _on_customer_state_changed(customer_state) -> None:
         sub = active_subs[0]
         product = getattr(sub, "product", None)
         product_name = (getattr(product, "name", "") or "").lower()
-        plan = TenantPlan.FREE
+        plan = TenantPlan.STARTER
         for key, val in _POLAR_PRODUCT_PLAN_MAP.items():
             if key in product_name:
                 plan = val
@@ -201,8 +201,8 @@ def _on_customer_state_changed(customer_state) -> None:
         tenant.plan = plan
         tenant.subscription_status = "active"
     else:
-        tenant.plan = TenantPlan.FREE
-        tenant.subscription_status = "none"
+        # No active subscriptions — mark as expired, keep last plan on record
+        tenant.subscription_status = "expired"
 
     polar_customer_id = getattr(customer_state, "id", None)
     if polar_customer_id:

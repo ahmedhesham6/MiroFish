@@ -17,7 +17,7 @@ from app.models.tenant import Tenant, TenantPlan, TenantConfig, PLAN_LIMITS, PLA
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _make_tenant(plan: TenantPlan = TenantPlan.FREE) -> Tenant:
+def _make_tenant(plan: TenantPlan = TenantPlan.STARTER) -> Tenant:
     return Tenant(
         tenant_id="tn_test",
         name="Test Tenant",
@@ -30,13 +30,10 @@ def _make_tenant(plan: TenantPlan = TenantPlan.FREE) -> Tenant:
 
 class TestPlanLimits(unittest.TestCase):
 
-    def test_free_plan_limits(self):
-        limits = PLAN_LIMITS[TenantPlan.FREE]
-        self.assertEqual(limits["max_projects"], 3)
-        self.assertEqual(limits["max_simulations_per_month"], 5)
-        self.assertEqual(limits["max_plugins"], 2)
-        self.assertFalse(limits["graph_memory_enabled"])
-        self.assertFalse(limits["byok_enabled"])
+    def test_no_free_plan(self):
+        """Free tier should not exist in PLAN_LIMITS."""
+        for plan in PLAN_LIMITS:
+            self.assertNotEqual(plan.value, "free")
 
     def test_starter_plan_limits(self):
         limits = PLAN_LIMITS[TenantPlan.STARTER]
@@ -53,18 +50,24 @@ class TestPlanLimits(unittest.TestCase):
         self.assertTrue(limits["byok_enabled"])
 
     def test_plan_order(self):
-        self.assertEqual(PLAN_ORDER[0], TenantPlan.FREE)
+        self.assertEqual(PLAN_ORDER[0], TenantPlan.STARTER)
         self.assertEqual(PLAN_ORDER[-1], TenantPlan.ENTERPRISE)
-        free_idx = PLAN_ORDER.index(TenantPlan.FREE)
         starter_idx = PLAN_ORDER.index(TenantPlan.STARTER)
         pro_idx = PLAN_ORDER.index(TenantPlan.PRO)
-        self.assertLess(free_idx, starter_idx)
         self.assertLess(starter_idx, pro_idx)
+
+    def test_free_not_in_plan_order(self):
+        plan_values = [p.value for p in PLAN_ORDER]
+        self.assertNotIn("free", plan_values)
 
 
 # ── Tenant model tests ────────────────────────────────────────────────────────
 
 class TestTenantModel(unittest.TestCase):
+
+    def test_default_plan_is_starter(self):
+        t = Tenant(tenant_id="tn_x", name="X")
+        self.assertEqual(t.plan, TenantPlan.STARTER)
 
     def test_polar_fields_default(self):
         t = _make_tenant()
@@ -91,6 +94,16 @@ class TestTenantModel(unittest.TestCase):
         self.assertEqual(t2.polar_customer_id, "pol_cus_abc")
         self.assertEqual(t2.subscription_status, "active")
         self.assertEqual(t2.usage["simulations_this_month"], 5)
+
+    def test_from_dict_migrates_free_to_starter(self):
+        """Legacy tenants with plan=free should be migrated to starter."""
+        data = {
+            "tenant_id": "tn_legacy",
+            "name": "Legacy",
+            "plan": "free",
+        }
+        t = Tenant.from_dict(data)
+        self.assertEqual(t.plan, TenantPlan.STARTER)
 
     def test_reset_monthly_usage_new_month(self):
         t = _make_tenant()
@@ -137,13 +150,12 @@ class TestRequiresPlan(unittest.TestCase):
         return {"Authorization": f"Bearer {self._make_jwt(tenant_id)}"}
 
     @patch("app.middleware.auth.TenantManager")
-    def test_requires_plan_blocks_free_tenant(self, mock_tm):
-        free_tenant = _make_tenant(TenantPlan.FREE)
+    def test_requires_plan_blocks_starter_from_pro_gate(self, mock_tm):
+        starter_tenant = _make_tenant(TenantPlan.STARTER)
         mock_user = MagicMock()
         mock_tm.get_user_by_id.return_value = mock_user
-        mock_tm.get_tenant.return_value = free_tenant
+        mock_tm.get_tenant.return_value = starter_tenant
 
-        # Register a test route that requires STARTER plan
         with self.app.app_context():
             from app.middleware.auth import requires_auth, requires_plan
             from flask import Blueprint, jsonify as _jsonify
@@ -151,7 +163,7 @@ class TestRequiresPlan(unittest.TestCase):
 
             @bp.route("/test-plan-gate")
             @requires_auth
-            @requires_plan("starter")
+            @requires_plan("pro")
             def gated():
                 return _jsonify({"ok": True})
 
@@ -190,7 +202,7 @@ class TestRequiresPlan(unittest.TestCase):
 
 class TestWebhookHandling(unittest.TestCase):
 
-    def _make_tenant_with_id(self, plan=TenantPlan.FREE) -> Tenant:
+    def _make_tenant_with_id(self, plan=TenantPlan.STARTER) -> Tenant:
         t = _make_tenant(plan)
         t.tenant_id = "tn_abc"
         return t
@@ -216,7 +228,8 @@ class TestWebhookHandling(unittest.TestCase):
             self.assertEqual(tenant.polar_subscription_id, "sub_123")
             mock_tm.save_tenant.assert_called_once_with(tenant)
 
-    def test_on_subscription_canceled_downgrades_to_free(self):
+    def test_on_subscription_canceled_keeps_plan(self):
+        """Canceled subscription keeps current plan until billing period ends."""
         tenant = self._make_tenant_with_id(TenantPlan.PRO)
         tenant.subscription_status = "active"
 
@@ -228,7 +241,8 @@ class TestWebhookHandling(unittest.TestCase):
             mock_tm.get_tenant.return_value = tenant
             from app.api.billing import _on_subscription_canceled
             _on_subscription_canceled(sub)
-            self.assertEqual(tenant.plan, TenantPlan.FREE)
+            # Plan should stay PRO (no downgrade to free)
+            self.assertEqual(tenant.plan, TenantPlan.PRO)
             self.assertEqual(tenant.subscription_status, "canceled")
             mock_tm.save_tenant.assert_called_once()
 
@@ -253,7 +267,8 @@ class TestWebhookHandling(unittest.TestCase):
             self.assertEqual(tenant.subscription_status, "active")
             mock_tm.save_tenant.assert_called_once()
 
-    def test_on_customer_state_changed_no_subs_resets_to_free(self):
+    def test_on_customer_state_changed_no_subs_marks_expired(self):
+        """No active subscriptions marks tenant as expired (no free tier)."""
         tenant = self._make_tenant_with_id(TenantPlan.STARTER)
 
         customer_state = MagicMock()
@@ -265,8 +280,9 @@ class TestWebhookHandling(unittest.TestCase):
             mock_tm.get_tenant.return_value = tenant
             from app.api.billing import _on_customer_state_changed
             _on_customer_state_changed(customer_state)
-            self.assertEqual(tenant.plan, TenantPlan.FREE)
-            self.assertEqual(tenant.subscription_status, "none")
+            # Plan stays as-is, but status is expired
+            self.assertEqual(tenant.plan, TenantPlan.STARTER)
+            self.assertEqual(tenant.subscription_status, "expired")
 
     def test_polar_webhook_rejects_bad_signature(self):
         app = create_app()
@@ -290,10 +306,10 @@ class TestWebhookHandling(unittest.TestCase):
 
 class TestUsageLimitEnforcement(unittest.TestCase):
 
-    def test_simulation_limit_enforced(self):
-        t = _make_tenant(TenantPlan.FREE)
+    def test_simulation_limit_enforced_for_starter(self):
+        t = _make_tenant(TenantPlan.STARTER)
         t.reset_monthly_usage_if_needed()
-        t.usage["simulations_this_month"] = 5  # at limit
+        t.usage["simulations_this_month"] = 20  # at limit
 
         limits = t.get_limits()
         max_sims = limits["max_simulations_per_month"]
@@ -306,13 +322,13 @@ class TestUsageLimitEnforcement(unittest.TestCase):
         limits = t.get_limits()
         self.assertEqual(limits["max_simulations_per_month"], -1)
 
-    def test_graph_memory_blocked_for_free(self):
-        t = _make_tenant(TenantPlan.FREE)
-        limits = t.get_limits()
-        self.assertFalse(limits["graph_memory_enabled"])
-
-    def test_graph_memory_allowed_for_starter(self):
+    def test_graph_memory_enabled_for_starter(self):
         t = _make_tenant(TenantPlan.STARTER)
+        limits = t.get_limits()
+        self.assertTrue(limits["graph_memory_enabled"])
+
+    def test_graph_memory_enabled_for_pro(self):
+        t = _make_tenant(TenantPlan.PRO)
         limits = t.get_limits()
         self.assertTrue(limits["graph_memory_enabled"])
 

@@ -186,7 +186,7 @@ const reveal = reactive({
 })
 
 const currentPlan = computed(() => {
-  return billingStatus.value?.plan || tenant.value?.plan || 'free'
+  return billingStatus.value?.plan || tenant.value?.plan || 'starter'
 })
 
 const isPro = computed(() => {
@@ -198,7 +198,7 @@ const planClass = computed(() => {
   const plan = currentPlan.value.toLowerCase()
   if (plan === 'pro') return 'plan-pro'
   if (plan === 'enterprise') return 'plan-enterprise'
-  return 'plan-free'
+  return 'plan-starter'
 })
 
 async function loadBilling() {
@@ -372,9 +372,9 @@ onMounted(async () => {
   padding: 2px 8px;
 }
 
-.plan-free {
-  border: 1px solid #cccccc;
-  color: #666666;
+.plan-starter {
+  border: 1px solid #0066cc;
+  color: #0066cc;
 }
 
 .plan-pro {
