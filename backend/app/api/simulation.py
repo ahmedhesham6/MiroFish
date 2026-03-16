@@ -205,21 +205,22 @@ def create_simulation():
                 "error": "请提供 project_id"
             }), 400
         
-        project = ProjectManager.get_project(project_id)
+        tenant_id = g.current_tenant.tenant_id
+        project = ProjectManager.get_project(tenant_id, project_id)
         if not project:
             return jsonify({
                 "success": False,
                 "error": f"项目不存在: {project_id}"
             }), 404
-        
+
         graph_id = data.get('graph_id') or project.graph_id
         if not graph_id:
             return jsonify({
                 "success": False,
                 "error": "项目尚未构建图谱，请先调用 /api/graph/build"
             }), 400
-        
-        manager = SimulationManager()
+
+        manager = SimulationManager(tenant_id)
         state = manager.create_simulation(
             project_id=project_id,
             graph_id=graph_id,
@@ -417,19 +418,20 @@ def prepare_simulation():
                 "error": "请提供 simulation_id"
             }), 400
         
-        manager = SimulationManager()
+        tenant_id = g.current_tenant.tenant_id
+        manager = SimulationManager(tenant_id)
         state = manager.get_simulation(simulation_id)
-        
+
         if not state:
             return jsonify({
                 "success": False,
                 "error": f"模拟不存在: {simulation_id}"
             }), 404
-        
+
         # 检查是否强制重新生成
         force_regenerate = data.get('force_regenerate', False)
         logger.info(f"开始处理 /prepare 请求: simulation_id={simulation_id}, force_regenerate={force_regenerate}")
-        
+
         # 检查是否已经准备完成（避免重复生成）
         if not force_regenerate:
             logger.debug(f"检查模拟 {simulation_id} 是否已准备完成...")
@@ -449,15 +451,15 @@ def prepare_simulation():
                 })
             else:
                 logger.info(f"模拟 {simulation_id} 未准备完成，将启动准备任务")
-        
+
         # 从项目获取必要信息
-        project = ProjectManager.get_project(state.project_id)
+        project = ProjectManager.get_project(tenant_id, state.project_id)
         if not project:
             return jsonify({
                 "success": False,
                 "error": f"项目不存在: {state.project_id}"
             }), 404
-        
+
         # 获取模拟需求
         simulation_requirement = project.simulation_requirement or ""
         if not simulation_requirement:
@@ -465,14 +467,14 @@ def prepare_simulation():
                 "success": False,
                 "error": "项目缺少模拟需求描述 (simulation_requirement)"
             }), 400
-        
+
         # 获取文档文本
-        document_text = ProjectManager.get_extracted_text(state.project_id) or ""
-        
+        document_text = ProjectManager.get_extracted_text(tenant_id, state.project_id) or ""
+
         entity_types_list = data.get('entity_types')
         use_llm_for_profiles = data.get('use_llm_for_profiles', True)
         parallel_profile_count = data.get('parallel_profile_count', 5)
-        
+
         # ========== 同步获取实体数量（在后台任务启动前） ==========
         # 这样前端在调用prepare后立即就能获取到预期Agent总数
         try:
@@ -491,9 +493,8 @@ def prepare_simulation():
         except Exception as e:
             logger.warning(f"同步获取实体数量失败（将在后台任务中重试）: {e}")
             # 失败不影响后续流程，后台任务会重新获取
-        
+
         # 创建异步任务
-        tenant_id = g.current_tenant.tenant_id
         task_manager = TaskManager()
         task_id = task_manager.create_task(
             tenant_id=tenant_id,
@@ -761,7 +762,8 @@ def get_prepare_status():
 def get_simulation(simulation_id: str):
     """获取模拟状态"""
     try:
-        manager = SimulationManager()
+        tenant_id = g.current_tenant.tenant_id
+        manager = SimulationManager(tenant_id)
         state = manager.get_simulation(simulation_id)
         
         if not state:
@@ -795,14 +797,14 @@ def get_simulation(simulation_id: str):
 def list_simulations():
     """
     列出所有模拟
-    
+
     Query参数：
         project_id: 按项目ID过滤（可选）
     """
     try:
         project_id = request.args.get('project_id')
-        
-        manager = SimulationManager()
+        tenant_id = g.current_tenant.tenant_id
+        manager = SimulationManager(tenant_id)
         simulations = manager.list_simulations(project_id=project_id)
         
         return jsonify({
@@ -917,8 +919,8 @@ def get_simulation_history():
     """
     try:
         limit = request.args.get('limit', 20, type=int)
-        
-        manager = SimulationManager()
+        tenant_id = g.current_tenant.tenant_id
+        manager = SimulationManager(tenant_id)
         simulations = manager.list_simulations()[:limit]
         
         # 增强模拟数据，只从 Simulation 文件读取
@@ -955,7 +957,7 @@ def get_simulation_history():
                 sim_dict["total_rounds"] = recommended_rounds
             
             # 获取关联项目的文件列表（最多3个）
-            project = ProjectManager.get_project(sim.project_id)
+            project = ProjectManager.get_project(tenant_id, sim.project_id)
             if project and hasattr(project, 'files') and project.files:
                 sim_dict["files"] = [
                     {"filename": f.get("filename", "未知文件")} 
@@ -1005,8 +1007,8 @@ def get_simulation_profiles(simulation_id: str):
     """
     try:
         platform = request.args.get('platform', 'reddit')
-        
-        manager = SimulationManager()
+        tenant_id = g.current_tenant.tenant_id
+        manager = SimulationManager(tenant_id)
         profiles = manager.get_profiles(simulation_id, platform=platform)
         
         return jsonify({
@@ -1279,7 +1281,8 @@ def get_simulation_config(simulation_id: str):
         - generation_reasoning: LLM的配置推理说明
     """
     try:
-        manager = SimulationManager()
+        tenant_id = g.current_tenant.tenant_id
+        manager = SimulationManager(tenant_id)
         config = manager.get_simulation_config(simulation_id)
         
         if not config:
@@ -1307,7 +1310,8 @@ def get_simulation_config(simulation_id: str):
 def download_simulation_config(simulation_id: str):
     """下载模拟配置文件"""
     try:
-        manager = SimulationManager()
+        tenant_id = g.current_tenant.tenant_id
+        manager = SimulationManager(tenant_id)
         sim_dir = manager._get_simulation_dir(simulation_id)
         config_path = os.path.join(sim_dir, "simulation_config.json")
         
@@ -1541,7 +1545,8 @@ def start_simulation():
             }), 400
 
         # 检查模拟是否已准备好
-        manager = SimulationManager()
+        tenant_id = g.current_tenant.tenant_id
+        manager = SimulationManager(tenant_id)
         state = manager.get_simulation(simulation_id)
 
         if not state:
@@ -1603,7 +1608,7 @@ def start_simulation():
             graph_id = state.graph_id
             if not graph_id:
                 # 尝试从项目中获取
-                project = ProjectManager.get_project(state.project_id)
+                project = ProjectManager.get_project(tenant_id, state.project_id)
                 if project:
                     graph_id = project.graph_id
             
@@ -1701,9 +1706,10 @@ def stop_simulation():
             }), 400
         
         run_state = SimulationRunner.stop_simulation(simulation_id)
-        
+
         # 更新模拟状态
-        manager = SimulationManager()
+        tenant_id = g.current_tenant.tenant_id
+        manager = SimulationManager(tenant_id)
         state = manager.get_simulation(simulation_id)
         if state:
             state.status = SimulationStatus.PAUSED
@@ -2732,7 +2738,8 @@ def close_simulation_env():
         )
         
         # 更新模拟状态
-        manager = SimulationManager()
+        tenant_id = g.current_tenant.tenant_id
+        manager = SimulationManager(tenant_id)
         state = manager.get_simulation(simulation_id)
         if state:
             state.status = SimulationStatus.COMPLETED

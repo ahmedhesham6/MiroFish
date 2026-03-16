@@ -39,7 +39,8 @@ def get_project(project_id: str):
     """
     获取项目详情
     """
-    project = ProjectManager.get_project(project_id)
+    tenant_id = g.current_tenant.tenant_id
+    project = ProjectManager.get_project(tenant_id, project_id)
     
     if not project:
         return jsonify({
@@ -60,7 +61,8 @@ def list_projects():
     列出所有项目
     """
     limit = request.args.get('limit', 50, type=int)
-    projects = ProjectManager.list_projects(limit=limit)
+    tenant_id = g.current_tenant.tenant_id
+    projects = ProjectManager.list_projects(tenant_id, limit=limit)
     
     return jsonify({
         "success": True,
@@ -75,7 +77,8 @@ def delete_project(project_id: str):
     """
     删除项目
     """
-    success = ProjectManager.delete_project(project_id)
+    tenant_id = g.current_tenant.tenant_id
+    success = ProjectManager.delete_project(tenant_id, project_id)
     
     if not success:
         return jsonify({
@@ -95,7 +98,8 @@ def reset_project(project_id: str):
     """
     重置项目状态（用于重新构建图谱）
     """
-    project = ProjectManager.get_project(project_id)
+    tenant_id = g.current_tenant.tenant_id
+    project = ProjectManager.get_project(tenant_id, project_id)
     
     if not project:
         return jsonify({
@@ -112,7 +116,7 @@ def reset_project(project_id: str):
     project.graph_id = None
     project.graph_build_task_id = None
     project.error = None
-    ProjectManager.save_project(project)
+    ProjectManager.save_project(tenant_id, project)
     
     return jsonify({
         "success": True,
@@ -178,43 +182,45 @@ def generate_ontology():
             }), 400
         
         # 创建项目
-        project = ProjectManager.create_project(name=project_name)
+        tenant_id = g.current_tenant.tenant_id
+        project = ProjectManager.create_project(tenant_id, name=project_name)
         project.simulation_requirement = simulation_requirement
         logger.info(f"创建项目: {project.project_id}")
-        
+
         # 保存文件并提取文本
         document_texts = []
         all_text = ""
-        
+
         for file in uploaded_files:
             if file and file.filename and allowed_file(file.filename):
                 # 保存文件到项目目录
                 file_info = ProjectManager.save_file_to_project(
-                    project.project_id, 
-                    file, 
+                    tenant_id,
+                    project.project_id,
+                    file,
                     file.filename
                 )
                 project.files.append({
                     "filename": file_info["original_filename"],
                     "size": file_info["size"]
                 })
-                
+
                 # 提取文本
                 text = FileParser.extract_text(file_info["path"])
                 text = TextProcessor.preprocess_text(text)
                 document_texts.append(text)
                 all_text += f"\n\n=== {file_info['original_filename']} ===\n{text}"
-        
+
         if not document_texts:
-            ProjectManager.delete_project(project.project_id)
+            ProjectManager.delete_project(tenant_id, project.project_id)
             return jsonify({
                 "success": False,
                 "error": "没有成功处理任何文档，请检查文件格式"
             }), 400
-        
+
         # 保存提取的文本
         project.total_text_length = len(all_text)
-        ProjectManager.save_extracted_text(project.project_id, all_text)
+        ProjectManager.save_extracted_text(tenant_id, project.project_id, all_text)
         logger.info(f"文本提取完成，共 {len(all_text)} 字符")
         
         # 生成本体
@@ -237,7 +243,7 @@ def generate_ontology():
         }
         project.analysis_summary = ontology.get("analysis_summary", "")
         project.status = ProjectStatus.ONTOLOGY_GENERATED
-        ProjectManager.save_project(project)
+        ProjectManager.save_project(tenant_id, project)
         logger.info(f"=== 本体生成完成 === 项目ID: {project.project_id}")
         
         return jsonify({
@@ -312,7 +318,8 @@ def build_graph():
             }), 400
         
         # 获取项目
-        project = ProjectManager.get_project(project_id)
+        tenant_id = g.current_tenant.tenant_id
+        project = ProjectManager.get_project(tenant_id, project_id)
         if not project:
             return jsonify({
                 "success": False,
@@ -352,7 +359,7 @@ def build_graph():
         project.chunk_overlap = chunk_overlap
         
         # 获取提取的文本
-        text = ProjectManager.get_extracted_text(project_id)
+        text = ProjectManager.get_extracted_text(tenant_id, project_id)
         if not text:
             return jsonify({
                 "success": False,
@@ -368,7 +375,6 @@ def build_graph():
             }), 400
         
         # 创建异步任务
-        tenant_id = g.current_tenant.tenant_id
         task_manager = TaskManager()
         task_id = task_manager.create_task(
             tenant_id=tenant_id,
@@ -376,11 +382,11 @@ def build_graph():
             metadata={"graph_name": graph_name, "project_id": project_id}
         )
         logger.info(f"创建图谱构建任务: task_id={task_id}, project_id={project_id}")
-        
+
         # 更新项目状态
         project.status = ProjectStatus.GRAPH_BUILDING
         project.graph_build_task_id = task_id
-        ProjectManager.save_project(project)
+        ProjectManager.save_project(tenant_id, project)
         
         # 启动后台任务
         def build_task():
@@ -419,7 +425,7 @@ def build_graph():
                 
                 # 更新项目的graph_id
                 project.graph_id = graph_id
-                ProjectManager.save_project(project)
+                ProjectManager.save_project(tenant_id, project)
                 
                 # 设置本体
                 task_manager.update_task(
@@ -478,7 +484,7 @@ def build_graph():
                 
                 # 更新项目状态
                 project.status = ProjectStatus.GRAPH_COMPLETED
-                ProjectManager.save_project(project)
+                ProjectManager.save_project(tenant_id, project)
                 
                 node_count = graph_data.get("node_count", 0)
                 edge_count = graph_data.get("edge_count", 0)
@@ -506,7 +512,7 @@ def build_graph():
                 
                 project.status = ProjectStatus.FAILED
                 project.error = str(e)
-                ProjectManager.save_project(project)
+                ProjectManager.save_project(tenant_id, project)
                 
                 task_manager.update_task(
                     task_id,

@@ -62,7 +62,7 @@ def generate_report():
         tenant_id = g.current_tenant.tenant_id
 
         # Fetch simulation info
-        manager = SimulationManager()
+        manager = SimulationManager(tenant_id)
         state = manager.get_simulation(simulation_id)
 
         if not state:
@@ -87,7 +87,7 @@ def generate_report():
                 })
         
         # Fetch project info
-        project = ProjectManager.get_project(state.project_id)
+        project = ProjectManager.get_project(tenant_id, state.project_id)
         if not project:
             return jsonify({
                 "success": False,
@@ -529,7 +529,8 @@ def chat_with_report_agent():
             }), 400
         
         # 获取模拟和项目信息
-        manager = SimulationManager()
+        tenant_id = g.current_tenant.tenant_id
+        manager = SimulationManager(tenant_id)
         state = manager.get_simulation(simulation_id)
         
         if not state:
@@ -538,13 +539,13 @@ def chat_with_report_agent():
                 "error": f"模拟不存在: {simulation_id}"
             }), 404
         
-        project = ProjectManager.get_project(state.project_id)
+        project = ProjectManager.get_project(tenant_id, state.project_id)
         if not project:
             return jsonify({
                 "success": False,
                 "error": f"项目不存在: {state.project_id}"
             }), 404
-        
+
         graph_id = state.graph_id or project.graph_id
         if not graph_id:
             return jsonify({
