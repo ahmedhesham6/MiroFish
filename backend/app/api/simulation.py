@@ -1625,7 +1625,20 @@ def start_simulation():
         # 更新模拟状态
         state.status = SimulationStatus.RUNNING
         manager._save_simulation_state(state)
-        
+
+        # Track usage: increment monthly simulation counter and report to Polar
+        from flask import g
+        from ..services.polar_service import PolarService
+        try:
+            tenant = g.current_tenant
+            tenant.reset_monthly_usage_if_needed()
+            tenant.usage["simulations_this_month"] = tenant.usage.get("simulations_this_month", 0) + 1
+            from ..models.tenant import TenantManager
+            TenantManager.save_tenant(tenant)
+            PolarService.report_usage(tenant.tenant_id, "simulations", 1)
+        except Exception as _usage_err:
+            logger.warning("Failed to track simulation usage: %s", _usage_err)
+
         response_data = run_state.to_dict()
         if max_rounds:
             response_data['max_rounds_applied'] = max_rounds
@@ -1633,7 +1646,7 @@ def start_simulation():
         response_data['force_restarted'] = force_restarted
         if enable_graph_memory_update:
             response_data['graph_id'] = graph_id
-        
+
         return jsonify({
             "success": True,
             "data": response_data

@@ -66,7 +66,11 @@ class Config:
     # JWT配置
     JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'dev-secret-change-me')
     JWT_EXPIRY_HOURS = int(os.environ.get('JWT_EXPIRY_HOURS', '48'))
-    
+
+    # Polar billing
+    POLAR_ACCESS_TOKEN = os.environ.get('POLAR_ACCESS_TOKEN')
+    POLAR_WEBHOOK_SECRET = os.environ.get('POLAR_WEBHOOK_SECRET')
+
     @classmethod
     def validate(cls):
         """验证必要配置"""

@@ -24,11 +24,38 @@ class TenantPlan(str, Enum):
 
 
 PLAN_LIMITS = {
-    TenantPlan.FREE: {"max_projects": 3, "max_simulations_per_month": 5, "max_plugins": 2},
-    TenantPlan.STARTER: {"max_projects": 20, "max_simulations_per_month": 30, "max_plugins": 10},
-    TenantPlan.PRO: {"max_projects": -1, "max_simulations_per_month": -1, "max_plugins": -1},
-    TenantPlan.ENTERPRISE: {"max_projects": -1, "max_simulations_per_month": -1, "max_plugins": -1},
+    TenantPlan.FREE: {
+        "max_projects": 3,
+        "max_simulations_per_month": 5,
+        "max_plugins": 2,
+        "graph_memory_enabled": False,
+        "byok_enabled": False,
+    },
+    TenantPlan.STARTER: {
+        "max_projects": 20,
+        "max_simulations_per_month": 20,
+        "max_plugins": 10,
+        "graph_memory_enabled": True,
+        "byok_enabled": False,
+    },
+    TenantPlan.PRO: {
+        "max_projects": -1,
+        "max_simulations_per_month": -1,
+        "max_plugins": -1,
+        "graph_memory_enabled": True,
+        "byok_enabled": True,
+    },
+    TenantPlan.ENTERPRISE: {
+        "max_projects": -1,
+        "max_simulations_per_month": -1,
+        "max_plugins": -1,
+        "graph_memory_enabled": True,
+        "byok_enabled": True,
+    },
 }
+
+# Plan order for comparison (lower index = lower tier)
+PLAN_ORDER = [TenantPlan.FREE, TenantPlan.STARTER, TenantPlan.PRO, TenantPlan.ENTERPRISE]
 
 
 @dataclass
@@ -113,6 +140,14 @@ class Tenant:
     config: TenantConfig = field(default_factory=TenantConfig)
     enabled_plugins: List[str] = field(default_factory=list)
     plugin_configs: Dict[str, Dict] = field(default_factory=dict)
+    # Polar billing fields
+    polar_customer_id: Optional[str] = None
+    polar_subscription_id: Optional[str] = None
+    subscription_status: str = "none"  # none, active, canceled
+    usage: Dict[str, Any] = field(default_factory=lambda: {
+        "simulations_this_month": 0,
+        "usage_month": "",
+    })
     created_at: str = ""
     updated_at: str = ""
 
@@ -124,6 +159,10 @@ class Tenant:
             "config": self.config.to_dict(),
             "enabled_plugins": self.enabled_plugins,
             "plugin_configs": self.plugin_configs,
+            "polar_customer_id": self.polar_customer_id,
+            "polar_subscription_id": self.polar_subscription_id,
+            "subscription_status": self.subscription_status,
+            "usage": self.usage,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
@@ -140,12 +179,23 @@ class Tenant:
             config=TenantConfig.from_dict(data.get("config", {})),
             enabled_plugins=data.get("enabled_plugins", []),
             plugin_configs=data.get("plugin_configs", {}),
+            polar_customer_id=data.get("polar_customer_id"),
+            polar_subscription_id=data.get("polar_subscription_id"),
+            subscription_status=data.get("subscription_status", "none"),
+            usage=data.get("usage", {"simulations_this_month": 0, "usage_month": ""}),
             created_at=data.get("created_at", ""),
             updated_at=data.get("updated_at", ""),
         )
 
-    def get_limits(self) -> Dict[str, int]:
+    def get_limits(self) -> Dict[str, Any]:
         return PLAN_LIMITS.get(self.plan, PLAN_LIMITS[TenantPlan.FREE])
+
+    def reset_monthly_usage_if_needed(self):
+        """Reset simulation counter if we're in a new month."""
+        current_month = datetime.now().strftime("%Y-%m")
+        if self.usage.get("usage_month") != current_month:
+            self.usage["simulations_this_month"] = 0
+            self.usage["usage_month"] = current_month
 
 
 def _hash_password(password: str, salt: str = None) -> tuple:
@@ -266,6 +316,18 @@ class TenantManager:
         cls._save_users(tenant_id, users)
 
         return user
+
+    @classmethod
+    def get_tenant_by_polar_customer_id(cls, polar_customer_id: str) -> Optional['Tenant']:
+        """Find a tenant by Polar customer ID."""
+        cls._ensure_dir()
+        if not os.path.exists(cls.TENANTS_DIR):
+            return None
+        for tenant_id in os.listdir(cls.TENANTS_DIR):
+            tenant = cls.get_tenant(tenant_id)
+            if tenant and tenant.polar_customer_id == polar_customer_id:
+                return tenant
+        return None
 
     @classmethod
     def get_user_by_email(cls, email: str) -> Optional[User]:
