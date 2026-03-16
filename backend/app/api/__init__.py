@@ -10,10 +10,12 @@ report_bp = Blueprint('report', __name__)
 auth_bp = Blueprint('auth', __name__)
 billing_bp = Blueprint('billing', __name__)
 webhook_bp = Blueprint('webhook', __name__)
+plugins_bp = Blueprint('plugins', __name__)
 
 from . import graph  # noqa: E402, F401
 from . import simulation  # noqa: E402, F401
 from . import report  # noqa: E402, F401
 from . import auth  # noqa: E402, F401
 from . import billing  # noqa: E402, F401
+from . import plugins  # noqa: E402, F401
 
