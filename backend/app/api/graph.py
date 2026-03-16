@@ -6,7 +6,7 @@ Uses a project context mechanism with server-side persistent state
 import os
 import traceback
 import threading
-from flask import request, jsonify
+from flask import request, jsonify, g
 
 from . import graph_bp
 from ..config import Config
@@ -368,8 +368,13 @@ def build_graph():
             }), 400
         
         # 创建异步任务
+        tenant_id = g.current_tenant.tenant_id
         task_manager = TaskManager()
-        task_id = task_manager.create_task(f"构建图谱: {graph_name}")
+        task_id = task_manager.create_task(
+            tenant_id=tenant_id,
+            task_type="graph_build",
+            metadata={"graph_name": graph_name, "project_id": project_id}
+        )
         logger.info(f"创建图谱构建任务: task_id={task_id}, project_id={project_id}")
         
         # 更新项目状态
@@ -389,7 +394,7 @@ def build_graph():
                 )
                 
                 # 创建图谱构建服务
-                builder = GraphBuilderService(api_key=Config.ZEP_API_KEY)
+                builder = GraphBuilderService(tenant_id=tenant_id, api_key=Config.ZEP_API_KEY)
                 
                 # 分块
                 task_manager.update_task(
@@ -539,8 +544,8 @@ def get_task(task_id: str):
     """
     查询任务状态
     """
-    task = TaskManager().get_task(task_id)
-    
+    task = TaskManager().get_task(g.current_tenant.tenant_id, task_id)
+
     if not task:
         return jsonify({
             "success": False,
@@ -559,11 +564,11 @@ def list_tasks():
     """
     列出所有任务
     """
-    tasks = TaskManager().list_tasks()
-    
+    tasks = TaskManager().list_tasks(g.current_tenant.tenant_id)
+
     return jsonify({
         "success": True,
-        "data": [t.to_dict() for t in tasks],
+        "data": tasks,
         "count": len(tasks)
     })
 

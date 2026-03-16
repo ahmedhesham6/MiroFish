@@ -1596,15 +1596,15 @@ class ReportAgent:
             self.console_logger = ReportConsoleLogger(report_id, self.tenant_id)
             
             ReportManager.update_progress(
-                report_id, "pending", 0, "初始化报告...",
+                self.tenant_id, report_id, "pending", 0, "初始化报告...",
                 completed_sections=[]
             )
-            ReportManager.save_report(report)
+            ReportManager.save_report(self.tenant_id, report)
             
             # 阶段1: 规划大纲
             report.status = ReportStatus.PLANNING
             ReportManager.update_progress(
-                report_id, "planning", 5, "开始规划报告大纲...",
+                self.tenant_id, report_id, "planning", 5, "开始规划报告大纲...",
                 completed_sections=[]
             )
             
@@ -1624,12 +1624,12 @@ class ReportAgent:
             self.report_logger.log_planning_complete(outline.to_dict())
             
             # 保存大纲到文件
-            ReportManager.save_outline(report_id, outline)
+            ReportManager.save_outline(self.tenant_id, report_id, outline)
             ReportManager.update_progress(
-                report_id, "planning", 15, f"大纲规划完成，共{len(outline.sections)}个章节",
+                self.tenant_id, report_id, "planning", 15, f"大纲规划完成，共{len(outline.sections)}个章节",
                 completed_sections=[]
             )
-            ReportManager.save_report(report)
+            ReportManager.save_report(self.tenant_id, report)
             
             logger.info(f"大纲已保存到文件: {report_id}/outline.json")
             
@@ -1645,7 +1645,7 @@ class ReportAgent:
                 
                 # 更新进度
                 ReportManager.update_progress(
-                    report_id, "generating", base_progress,
+                    self.tenant_id, report_id, "generating", base_progress,
                     f"正在生成章节: {section.title} ({section_num}/{total_sections})",
                     current_section=section.title,
                     completed_sections=completed_section_titles
@@ -1676,7 +1676,7 @@ class ReportAgent:
                 generated_sections.append(f"## {section.title}\n\n{section_content}")
 
                 # 保存章节
-                ReportManager.save_section(report_id, section_num, section)
+                ReportManager.save_section(self.tenant_id, report_id, section_num, section)
                 completed_section_titles.append(section.title)
 
                 # 记录章节完成日志
@@ -1693,7 +1693,7 @@ class ReportAgent:
                 
                 # 更新进度
                 ReportManager.update_progress(
-                    report_id, "generating", 
+                    self.tenant_id, report_id, "generating",
                     base_progress + int(70 / total_sections),
                     f"章节 {section.title} 已完成",
                     current_section=None,
@@ -1705,12 +1705,12 @@ class ReportAgent:
                 progress_callback("generating", 95, "正在组装完整报告...")
             
             ReportManager.update_progress(
-                report_id, "generating", 95, "正在组装完整报告...",
+                self.tenant_id, report_id, "generating", 95, "正在组装完整报告...",
                 completed_sections=completed_section_titles
             )
-            
+
             # 使用ReportManager组装完整报告
-            report.markdown_content = ReportManager.assemble_full_report(report_id, outline)
+            report.markdown_content = ReportManager.assemble_full_report(self.tenant_id, report_id, outline)
             report.status = ReportStatus.COMPLETED
             report.completed_at = datetime.now().isoformat()
             
@@ -1725,9 +1725,9 @@ class ReportAgent:
                 )
             
             # 保存最终报告
-            ReportManager.save_report(report)
+            ReportManager.save_report(self.tenant_id, report)
             ReportManager.update_progress(
-                report_id, "completed", 100, "报告生成完成",
+                self.tenant_id, report_id, "completed", 100, "报告生成完成",
                 completed_sections=completed_section_titles
             )
             
@@ -1754,9 +1754,9 @@ class ReportAgent:
             
             # 保存失败状态
             try:
-                ReportManager.save_report(report)
+                ReportManager.save_report(self.tenant_id, report)
                 ReportManager.update_progress(
-                    report_id, "failed", -1, f"报告生成失败: {str(e)}",
+                    self.tenant_id, report_id, "failed", -1, f"报告生成失败: {str(e)}",
                     completed_sections=completed_section_titles
                 )
             except Exception:
@@ -1797,7 +1797,7 @@ class ReportAgent:
         # 获取已生成的报告内容
         report_content = ""
         try:
-            report = ReportManager.get_report_by_simulation(self.simulation_id)
+            report = ReportManager.get_report_by_simulation(self.tenant_id, self.simulation_id)
             if report and report.markdown_content:
                 # 限制报告长度，避免上下文过长
                 report_content = report.markdown_content[:15000]
@@ -2212,21 +2212,22 @@ class ReportManager:
     
     @classmethod
     def update_progress(
-        cls, 
-        report_id: str, 
-        status: str, 
-        progress: int, 
+        cls,
+        tenant_id: str,
+        report_id: str,
+        status: str,
+        progress: int,
         message: str,
         current_section: str = None,
         completed_sections: List[str] = None
     ) -> None:
         """
         更新报告生成进度
-        
+
         前端可以通过读取progress.json获取实时进度
         """
-        cls._ensure_report_folder(report_id)
-        
+        cls._ensure_report_folder(tenant_id, report_id)
+
         progress_data = {
             "status": status,
             "progress": progress,
@@ -2235,29 +2236,29 @@ class ReportManager:
             "completed_sections": completed_sections or [],
             "updated_at": datetime.now().isoformat()
         }
-        
-        with open(cls._get_progress_path(report_id), 'w', encoding='utf-8') as f:
+
+        with open(cls._get_progress_path(tenant_id, report_id), 'w', encoding='utf-8') as f:
             json.dump(progress_data, f, ensure_ascii=False, indent=2)
     
     @classmethod
-    def get_progress(cls, report_id: str) -> Optional[Dict[str, Any]]:
+    def get_progress(cls, tenant_id: str, report_id: str) -> Optional[Dict[str, Any]]:
         """获取报告生成进度"""
-        path = cls._get_progress_path(report_id)
-        
+        path = cls._get_progress_path(tenant_id, report_id)
+
         if not os.path.exists(path):
             return None
-        
+
         with open(path, 'r', encoding='utf-8') as f:
             return json.load(f)
     
     @classmethod
-    def get_generated_sections(cls, report_id: str) -> List[Dict[str, Any]]:
+    def get_generated_sections(cls, tenant_id: str, report_id: str) -> List[Dict[str, Any]]:
         """
         获取已生成的章节列表
-        
+
         返回所有已保存的章节文件信息
         """
-        folder = cls._get_report_folder(report_id)
+        folder = cls._get_report_folder(tenant_id, report_id)
         
         if not os.path.exists(folder):
             return []
@@ -2282,29 +2283,27 @@ class ReportManager:
         return sections
     
     @classmethod
-    def assemble_full_report(cls, report_id: str, outline: ReportOutline) -> str:
+    def assemble_full_report(cls, tenant_id: str, report_id: str, outline: ReportOutline) -> str:
         """
         组装完整报告
-        
+
         从已保存的章节文件组装完整报告，并进行标题清理
         """
-        folder = cls._get_report_folder(report_id)
-        
         # 构建报告头部
         md_content = f"# {outline.title}\n\n"
         md_content += f"> {outline.summary}\n\n"
         md_content += f"---\n\n"
-        
+
         # 按顺序读取所有章节文件
-        sections = cls.get_generated_sections(report_id)
+        sections = cls.get_generated_sections(tenant_id, report_id)
         for section_info in sections:
             md_content += section_info["content"]
-        
+
         # 后处理：清理整个报告的标题问题
         md_content = cls._post_process_report(md_content, outline)
-        
+
         # 保存完整报告
-        full_path = cls._get_report_markdown_path(report_id)
+        full_path = cls._get_report_markdown_path(tenant_id, report_id)
         with open(full_path, 'w', encoding='utf-8') as f:
             f.write(md_content)
         
@@ -2438,41 +2437,36 @@ class ReportManager:
         return '\n'.join(result_lines)
     
     @classmethod
-    def save_report(cls, report: Report) -> None:
+    def save_report(cls, tenant_id: str, report: Report) -> None:
         """保存报告元信息和完整报告"""
-        cls._ensure_report_folder(report.report_id)
-        
+        cls._ensure_report_folder(tenant_id, report.report_id)
+
         # 保存元信息JSON
-        with open(cls._get_report_path(report.report_id), 'w', encoding='utf-8') as f:
+        with open(cls._get_report_path(tenant_id, report.report_id), 'w', encoding='utf-8') as f:
             json.dump(report.to_dict(), f, ensure_ascii=False, indent=2)
-        
+
         # 保存大纲
         if report.outline:
-            cls.save_outline(report.report_id, report.outline)
-        
+            cls.save_outline(tenant_id, report.report_id, report.outline)
+
         # 保存完整Markdown报告
         if report.markdown_content:
-            with open(cls._get_report_markdown_path(report.report_id), 'w', encoding='utf-8') as f:
+            with open(cls._get_report_markdown_path(tenant_id, report.report_id), 'w', encoding='utf-8') as f:
                 f.write(report.markdown_content)
-        
+
         logger.info(f"报告已保存: {report.report_id}")
     
     @classmethod
-    def get_report(cls, report_id: str) -> Optional[Report]:
+    def get_report(cls, tenant_id: str, report_id: str) -> Optional[Report]:
         """获取报告"""
-        path = cls._get_report_path(report_id)
-        
+        path = cls._get_report_path(tenant_id, report_id)
+
         if not os.path.exists(path):
-            # 兼容旧格式：检查直接存储在reports目录下的文件
-            old_path = os.path.join(cls.REPORTS_DIR, f"{report_id}.json")
-            if os.path.exists(old_path):
-                path = old_path
-            else:
-                return None
-        
+            return None
+
         with open(path, 'r', encoding='utf-8') as f:
             data = json.load(f)
-        
+
         # 重建Report对象
         outline = None
         if data.get('outline'):
@@ -2488,15 +2482,15 @@ class ReportManager:
                 summary=outline_data['summary'],
                 sections=sections
             )
-        
+
         # 如果markdown_content为空，尝试从full_report.md读取
         markdown_content = data.get('markdown_content', '')
         if not markdown_content:
-            full_report_path = cls._get_report_markdown_path(report_id)
+            full_report_path = cls._get_report_markdown_path(tenant_id, report_id)
             if os.path.exists(full_report_path):
                 with open(full_report_path, 'r', encoding='utf-8') as f:
                     markdown_content = f.read()
-        
+
         return Report(
             report_id=data['report_id'],
             simulation_id=data['simulation_id'],
@@ -2511,76 +2505,50 @@ class ReportManager:
         )
     
     @classmethod
-    def get_report_by_simulation(cls, simulation_id: str) -> Optional[Report]:
+    def get_report_by_simulation(cls, tenant_id: str, simulation_id: str) -> Optional[Report]:
         """根据模拟ID获取报告"""
-        cls._ensure_reports_dir()
-        
-        for item in os.listdir(cls.REPORTS_DIR):
-            item_path = os.path.join(cls.REPORTS_DIR, item)
-            # 新格式：文件夹
+        cls._ensure_reports_dir(tenant_id)
+        reports_dir = cls._get_reports_dir(tenant_id)
+
+        for item in os.listdir(reports_dir):
+            item_path = os.path.join(reports_dir, item)
             if os.path.isdir(item_path):
-                report = cls.get_report(item)
+                report = cls.get_report(tenant_id, item)
                 if report and report.simulation_id == simulation_id:
                     return report
-            # 兼容旧格式：JSON文件
-            elif item.endswith('.json'):
-                report_id = item[:-5]
-                report = cls.get_report(report_id)
-                if report and report.simulation_id == simulation_id:
-                    return report
-        
+
         return None
     
     @classmethod
-    def list_reports(cls, simulation_id: Optional[str] = None, limit: int = 50) -> List[Report]:
+    def list_reports(cls, tenant_id: str, simulation_id: Optional[str] = None, limit: int = 50) -> List[Report]:
         """列出报告"""
-        cls._ensure_reports_dir()
-        
+        cls._ensure_reports_dir(tenant_id)
+        reports_dir = cls._get_reports_dir(tenant_id)
+
         reports = []
-        for item in os.listdir(cls.REPORTS_DIR):
-            item_path = os.path.join(cls.REPORTS_DIR, item)
-            # 新格式：文件夹
+        for item in os.listdir(reports_dir):
+            item_path = os.path.join(reports_dir, item)
             if os.path.isdir(item_path):
-                report = cls.get_report(item)
+                report = cls.get_report(tenant_id, item)
                 if report:
                     if simulation_id is None or report.simulation_id == simulation_id:
                         reports.append(report)
-            # 兼容旧格式：JSON文件
-            elif item.endswith('.json'):
-                report_id = item[:-5]
-                report = cls.get_report(report_id)
-                if report:
-                    if simulation_id is None or report.simulation_id == simulation_id:
-                        reports.append(report)
-        
+
         # 按创建时间倒序
         reports.sort(key=lambda r: r.created_at, reverse=True)
-        
+
         return reports[:limit]
     
     @classmethod
-    def delete_report(cls, report_id: str) -> bool:
+    def delete_report(cls, tenant_id: str, report_id: str) -> bool:
         """删除报告（整个文件夹）"""
         import shutil
-        
-        folder_path = cls._get_report_folder(report_id)
-        
-        # 新格式：删除整个文件夹
+
+        folder_path = cls._get_report_folder(tenant_id, report_id)
+
         if os.path.exists(folder_path) and os.path.isdir(folder_path):
             shutil.rmtree(folder_path)
             logger.info(f"报告文件夹已删除: {report_id}")
             return True
-        
-        # 兼容旧格式：删除单独的文件
-        deleted = False
-        old_json_path = os.path.join(cls.REPORTS_DIR, f"{report_id}.json")
-        old_md_path = os.path.join(cls.REPORTS_DIR, f"{report_id}.md")
-        
-        if os.path.exists(old_json_path):
-            os.remove(old_json_path)
-            deleted = True
-        if os.path.exists(old_md_path):
-            os.remove(old_md_path)
-            deleted = True
-        
-        return deleted
+
+        return False

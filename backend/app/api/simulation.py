@@ -5,7 +5,7 @@ Step2: Zep entity reading and filtering, OASIS simulation preparation and execut
 
 import os
 import traceback
-from flask import request, jsonify, send_file
+from flask import request, jsonify, send_file, g
 
 from . import simulation_bp
 from ..config import Config
@@ -493,8 +493,10 @@ def prepare_simulation():
             # 失败不影响后续流程，后台任务会重新获取
         
         # 创建异步任务
+        tenant_id = g.current_tenant.tenant_id
         task_manager = TaskManager()
         task_id = task_manager.create_task(
+            tenant_id=tenant_id,
             task_type="simulation_prepare",
             metadata={
                 "simulation_id": simulation_id,
@@ -713,8 +715,8 @@ def get_prepare_status():
             }), 400
         
         task_manager = TaskManager()
-        task = task_manager.get_task(task_id)
-        
+        task = task_manager.get_task(g.current_tenant.tenant_id, task_id)
+
         if not task:
             # 任务不存在，但如果有simulation_id，检查是否已准备完成
             if simulation_id:

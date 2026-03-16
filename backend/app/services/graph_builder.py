@@ -42,11 +42,12 @@ class GraphBuilderService:
     负责调用Zep API构建知识图谱
     """
     
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, tenant_id: str = "", api_key: Optional[str] = None):
+        self.tenant_id = tenant_id
         self.api_key = api_key or Config.ZEP_API_KEY
         if not self.api_key:
             raise ValueError("ZEP_API_KEY 未配置")
-        
+
         self.client = Zep(api_key=self.api_key)
         self.task_manager = TaskManager()
     
@@ -75,6 +76,7 @@ class GraphBuilderService:
         """
         # 创建任务
         task_id = self.task_manager.create_task(
+            tenant_id=self.tenant_id,
             task_type="graph_build",
             metadata={
                 "graph_name": graph_name,

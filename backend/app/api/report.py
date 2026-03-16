@@ -6,7 +6,7 @@ Provides endpoints for simulation report generation, retrieval, and chat
 import os
 import traceback
 import threading
-from flask import request, jsonify, send_file
+from flask import request, jsonify, send_file, g
 
 from . import report_bp
 from ..config import Config
@@ -59,11 +59,12 @@ def generate_report():
             }), 400
 
         force_regenerate = data.get('force_regenerate', False)
+        tenant_id = g.current_tenant.tenant_id
 
         # Fetch simulation info
         manager = SimulationManager()
         state = manager.get_simulation(simulation_id)
-        
+
         if not state:
             return jsonify({
                 "success": False,
@@ -72,7 +73,7 @@ def generate_report():
 
         # Check for an existing report
         if not force_regenerate:
-            existing_report = ReportManager.get_report_by_simulation(simulation_id)
+            existing_report = ReportManager.get_report_by_simulation(tenant_id, simulation_id)
             if existing_report and existing_report.status == ReportStatus.COMPLETED:
                 return jsonify({
                     "success": True,
@@ -114,6 +115,7 @@ def generate_report():
         # Create async task
         task_manager = TaskManager()
         task_id = task_manager.create_task(
+            tenant_id=tenant_id,
             task_type="report_generate",
             metadata={
                 "simulation_id": simulation_id,
@@ -154,7 +156,7 @@ def generate_report():
                 )
                 
                 # Save report
-                ReportManager.save_report(report)
+                ReportManager.save_report(tenant_id, report)
                 
                 if report.status == ReportStatus.COMPLETED:
                     task_manager.complete_task(
@@ -225,10 +227,11 @@ def get_generate_status():
         
         task_id = data.get('task_id')
         simulation_id = data.get('simulation_id')
-        
+        tenant_id = g.current_tenant.tenant_id
+
         # 如果提供了simulation_id，先检查是否已有完成的报告
         if simulation_id:
-            existing_report = ReportManager.get_report_by_simulation(simulation_id)
+            existing_report = ReportManager.get_report_by_simulation(tenant_id, simulation_id)
             if existing_report and existing_report.status == ReportStatus.COMPLETED:
                 return jsonify({
                     "success": True,
@@ -241,15 +244,15 @@ def get_generate_status():
                         "already_completed": True
                     }
                 })
-        
+
         if not task_id:
             return jsonify({
                 "success": False,
                 "error": "请提供 task_id 或 simulation_id"
             }), 400
-        
+
         task_manager = TaskManager()
-        task = task_manager.get_task(task_id)
+        task = task_manager.get_task(tenant_id, task_id)
         
         if not task:
             return jsonify({
@@ -293,19 +296,20 @@ def get_report(report_id: str):
         }
     """
     try:
-        report = ReportManager.get_report(report_id)
-        
+        tenant_id = g.current_tenant.tenant_id
+        report = ReportManager.get_report(tenant_id, report_id)
+
         if not report:
             return jsonify({
                 "success": False,
                 "error": f"报告不存在: {report_id}"
             }), 404
-        
+
         return jsonify({
             "success": True,
             "data": report.to_dict()
         })
-        
+
     except Exception as e:
         logger.error(f"获取报告失败: {str(e)}")
         return jsonify({
@@ -331,21 +335,22 @@ def get_report_by_simulation(simulation_id: str):
         }
     """
     try:
-        report = ReportManager.get_report_by_simulation(simulation_id)
-        
+        tenant_id = g.current_tenant.tenant_id
+        report = ReportManager.get_report_by_simulation(tenant_id, simulation_id)
+
         if not report:
             return jsonify({
                 "success": False,
                 "error": f"该模拟暂无报告: {simulation_id}",
                 "has_report": False
             }), 404
-        
+
         return jsonify({
             "success": True,
             "data": report.to_dict(),
             "has_report": True
         })
-        
+
     except Exception as e:
         logger.error(f"获取报告失败: {str(e)}")
         return jsonify({
@@ -373,20 +378,22 @@ def list_reports():
         }
     """
     try:
+        tenant_id = g.current_tenant.tenant_id
         simulation_id = request.args.get('simulation_id')
         limit = request.args.get('limit', 50, type=int)
-        
+
         reports = ReportManager.list_reports(
+            tenant_id=tenant_id,
             simulation_id=simulation_id,
             limit=limit
         )
-        
+
         return jsonify({
             "success": True,
             "data": [r.to_dict() for r in reports],
             "count": len(reports)
         })
-        
+
     except Exception as e:
         logger.error(f"列出报告失败: {str(e)}")
         return jsonify({
@@ -405,15 +412,16 @@ def download_report(report_id: str):
     返回Markdown文件
     """
     try:
-        report = ReportManager.get_report(report_id)
-        
+        tenant_id = g.current_tenant.tenant_id
+        report = ReportManager.get_report(tenant_id, report_id)
+
         if not report:
             return jsonify({
                 "success": False,
                 "error": f"报告不存在: {report_id}"
             }), 404
-        
-        md_path = ReportManager._get_report_markdown_path(report_id)
+
+        md_path = ReportManager._get_report_markdown_path(tenant_id, report_id)
         
         if not os.path.exists(md_path):
             # 如果MD文件不存在，生成一个临时文件
@@ -448,7 +456,8 @@ def download_report(report_id: str):
 def delete_report(report_id: str):
     """删除报告"""
     try:
-        success = ReportManager.delete_report(report_id)
+        tenant_id = g.current_tenant.tenant_id
+        success = ReportManager.delete_report(tenant_id, report_id)
         
         if not success:
             return jsonify({
@@ -590,7 +599,8 @@ def get_report_progress(report_id: str):
         }
     """
     try:
-        progress = ReportManager.get_progress(report_id)
+        tenant_id = g.current_tenant.tenant_id
+        progress = ReportManager.get_progress(tenant_id, report_id)
         
         if not progress:
             return jsonify({
@@ -639,10 +649,11 @@ def get_report_sections(report_id: str):
         }
     """
     try:
-        sections = ReportManager.get_generated_sections(report_id)
-        
+        tenant_id = g.current_tenant.tenant_id
+        sections = ReportManager.get_generated_sections(tenant_id, report_id)
+
         # 获取报告状态
-        report = ReportManager.get_report(report_id)
+        report = ReportManager.get_report(tenant_id, report_id)
         is_complete = report is not None and report.status == ReportStatus.COMPLETED
         
         return jsonify({
@@ -680,7 +691,8 @@ def get_single_section(report_id: str, section_index: int):
         }
     """
     try:
-        section_path = ReportManager._get_section_path(report_id, section_index)
+        tenant_id = g.current_tenant.tenant_id
+        section_path = ReportManager._get_section_path(tenant_id, report_id, section_index)
         
         if not os.path.exists(section_path):
             return jsonify({
@@ -732,8 +744,9 @@ def check_report_status(simulation_id: str):
         }
     """
     try:
-        report = ReportManager.get_report_by_simulation(simulation_id)
-        
+        tenant_id = g.current_tenant.tenant_id
+        report = ReportManager.get_report_by_simulation(tenant_id, simulation_id)
+
         has_report = report is not None
         report_status = report.status.value if report else None
         report_id = report.report_id if report else None
@@ -807,7 +820,8 @@ def get_agent_log(report_id: str):
     try:
         from_line = request.args.get('from_line', 0, type=int)
         
-        log_data = ReportManager.get_agent_log(report_id, from_line=from_line)
+        tenant_id = g.current_tenant.tenant_id
+        log_data = ReportManager.get_agent_log(tenant_id, report_id, from_line=from_line)
         
         return jsonify({
             "success": True,
@@ -839,7 +853,8 @@ def stream_agent_log(report_id: str):
         }
     """
     try:
-        logs = ReportManager.get_agent_log_stream(report_id)
+        tenant_id = g.current_tenant.tenant_id
+        logs = ReportManager.get_agent_log_stream(tenant_id, report_id)
         
         return jsonify({
             "success": True,
@@ -891,7 +906,8 @@ def get_console_log(report_id: str):
     try:
         from_line = request.args.get('from_line', 0, type=int)
         
-        log_data = ReportManager.get_console_log(report_id, from_line=from_line)
+        tenant_id = g.current_tenant.tenant_id
+        log_data = ReportManager.get_console_log(tenant_id, report_id, from_line=from_line)
         
         return jsonify({
             "success": True,
@@ -923,7 +939,8 @@ def stream_console_log(report_id: str):
         }
     """
     try:
-        logs = ReportManager.get_console_log_stream(report_id)
+        tenant_id = g.current_tenant.tenant_id
+        logs = ReportManager.get_console_log_stream(tenant_id, report_id)
         
         return jsonify({
             "success": True,
