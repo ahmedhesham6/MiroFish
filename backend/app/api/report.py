@@ -990,7 +990,7 @@ def search_graph_tool():
         
         from ..services.zep_tools import ZepToolsService
         
-        tools = ZepToolsService()
+        tools = ZepToolsService(api_key=g.current_tenant.config.get_zep_api_key())
         result = tools.search_graph(
             graph_id=graph_id,
             query=query,
@@ -1035,7 +1035,7 @@ def get_graph_statistics_tool():
         
         from ..services.zep_tools import ZepToolsService
         
-        tools = ZepToolsService()
+        tools = ZepToolsService(api_key=g.current_tenant.config.get_zep_api_key())
         result = tools.get_graph_statistics(graph_id)
         
         return jsonify({

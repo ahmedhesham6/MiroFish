@@ -58,7 +58,9 @@ def get_graph_entities(graph_id: str):
         enrich: Whether to fetch related edge information (default true)
     """
     try:
-        if not Config.ZEP_API_KEY:
+        tenant_config = g.current_tenant.config
+        zep_key = tenant_config.get_zep_api_key()
+        if not zep_key:
             return jsonify({
                 "success": False,
                 "error": "ZEP_API_KEY is not configured"
@@ -69,8 +71,8 @@ def get_graph_entities(graph_id: str):
         enrich = request.args.get('enrich', 'true').lower() == 'true'
 
         logger.info(f"Fetching graph entities: graph_id={graph_id}, entity_types={entity_types}, enrich={enrich}")
-        
-        reader = ZepEntityReader()
+
+        reader = ZepEntityReader(api_key=zep_key)
         result = reader.filter_defined_entities(
             graph_id=graph_id,
             defined_entity_types=entity_types,
@@ -96,13 +98,15 @@ def get_graph_entities(graph_id: str):
 def get_entity_detail(graph_id: str, entity_uuid: str):
     """Retrieve detailed information for a single entity."""
     try:
-        if not Config.ZEP_API_KEY:
+        tenant_config = g.current_tenant.config
+        zep_key = tenant_config.get_zep_api_key()
+        if not zep_key:
             return jsonify({
                 "success": False,
                 "error": "ZEP_API_KEY is not configured"
             }), 500
 
-        reader = ZepEntityReader()
+        reader = ZepEntityReader(api_key=zep_key)
         entity = reader.get_entity_with_context(graph_id, entity_uuid)
 
         if not entity:
@@ -130,15 +134,17 @@ def get_entity_detail(graph_id: str, entity_uuid: str):
 def get_entities_by_type(graph_id: str, entity_type: str):
     """Retrieve all entities of the specified type."""
     try:
-        if not Config.ZEP_API_KEY:
+        tenant_config = g.current_tenant.config
+        zep_key = tenant_config.get_zep_api_key()
+        if not zep_key:
             return jsonify({
                 "success": False,
                 "error": "ZEP_API_KEY is not configured"
             }), 500
-        
+
         enrich = request.args.get('enrich', 'true').lower() == 'true'
-        
-        reader = ZepEntityReader()
+
+        reader = ZepEntityReader(api_key=zep_key)
         entities = reader.get_entities_by_type(
             graph_id=graph_id,
             entity_type=entity_type,
@@ -479,7 +485,7 @@ def prepare_simulation():
         # 这样前端在调用prepare后立即就能获取到预期Agent总数
         try:
             logger.info(f"同步获取实体数量: graph_id={state.graph_id}")
-            reader = ZepEntityReader()
+            reader = ZepEntityReader(api_key=g.current_tenant.config.get_zep_api_key())
             # 快速读取实体（不需要边信息，只统计数量）
             filtered_preview = reader.filter_defined_entities(
                 graph_id=state.graph_id,
@@ -1419,7 +1425,7 @@ def generate_profiles():
         use_llm = data.get('use_llm', True)
         platform = data.get('platform', 'reddit')
         
-        reader = ZepEntityReader()
+        reader = ZepEntityReader(api_key=g.current_tenant.config.get_zep_api_key())
         filtered = reader.filter_defined_entities(
             graph_id=graph_id,
             defined_entity_types=entity_types,
@@ -1432,7 +1438,13 @@ def generate_profiles():
                 "error": "没有找到符合条件的实体"
             }), 400
         
-        generator = OasisProfileGenerator()
+        tenant_config = g.current_tenant.config
+        generator = OasisProfileGenerator(
+            api_key=tenant_config.get_llm_api_key(),
+            base_url=tenant_config.get_llm_base_url(),
+            model_name=tenant_config.get_llm_model_name(),
+            zep_api_key=tenant_config.get_zep_api_key(),
+        )
         profiles = generator.generate_profiles_from_entities(
             entities=filtered.entities,
             use_llm=use_llm

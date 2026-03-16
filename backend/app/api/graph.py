@@ -297,7 +297,9 @@ def build_graph():
         
         # 检查配置
         errors = []
-        if not Config.ZEP_API_KEY:
+        tenant_config = g.current_tenant.config
+        zep_key = tenant_config.get_zep_api_key()
+        if not zep_key:
             errors.append("ZEP_API_KEY未配置")
         if errors:
             logger.error(f"配置错误: {errors}")
@@ -305,7 +307,7 @@ def build_graph():
                 "success": False,
                 "error": "配置错误: " + "; ".join(errors)
             }), 500
-        
+
         # 解析请求
         data = request.get_json() or {}
         project_id = data.get('project_id')
@@ -400,7 +402,7 @@ def build_graph():
                 )
                 
                 # 创建图谱构建服务
-                builder = GraphBuilderService(tenant_id=tenant_id, api_key=Config.ZEP_API_KEY)
+                builder = GraphBuilderService(tenant_id=tenant_id, api_key=zep_key)
                 
                 # 分块
                 task_manager.update_task(
@@ -588,13 +590,16 @@ def get_graph_data(graph_id: str):
     获取图谱数据（节点和边）
     """
     try:
-        if not Config.ZEP_API_KEY:
+        tenant_config = g.current_tenant.config
+        zep_key = tenant_config.get_zep_api_key()
+        if not zep_key:
             return jsonify({
                 "success": False,
                 "error": "ZEP_API_KEY未配置"
             }), 500
-        
-        builder = GraphBuilderService(api_key=Config.ZEP_API_KEY)
+
+        tenant_id = g.current_tenant.tenant_id
+        builder = GraphBuilderService(tenant_id=tenant_id, api_key=zep_key)
         graph_data = builder.get_graph_data(graph_id)
         
         return jsonify({
@@ -617,13 +622,16 @@ def delete_graph(graph_id: str):
     删除Zep图谱
     """
     try:
-        if not Config.ZEP_API_KEY:
+        tenant_config = g.current_tenant.config
+        zep_key = tenant_config.get_zep_api_key()
+        if not zep_key:
             return jsonify({
                 "success": False,
                 "error": "ZEP_API_KEY未配置"
             }), 500
-        
-        builder = GraphBuilderService(api_key=Config.ZEP_API_KEY)
+
+        tenant_id = g.current_tenant.tenant_id
+        builder = GraphBuilderService(tenant_id=tenant_id, api_key=zep_key)
         builder.delete_graph(graph_id)
         
         return jsonify({
