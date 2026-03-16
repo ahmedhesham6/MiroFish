@@ -1582,18 +1582,18 @@ class ReportAgent:
         
         try:
             # 初始化：创建报告文件夹并保存初始状态
-            ReportManager._ensure_report_folder(report_id)
-            
+            ReportManager._ensure_report_folder(self.tenant_id, report_id)
+
             # 初始化日志记录器（结构化日志 agent_log.jsonl）
-            self.report_logger = ReportLogger(report_id)
+            self.report_logger = ReportLogger(report_id, self.tenant_id)
             self.report_logger.log_start(
                 simulation_id=self.simulation_id,
                 graph_id=self.graph_id,
                 simulation_requirement=self.simulation_requirement
             )
-            
+
             # 初始化控制台日志记录器（console_log.txt）
-            self.console_logger = ReportConsoleLogger(report_id)
+            self.console_logger = ReportConsoleLogger(report_id, self.tenant_id)
             
             ReportManager.update_progress(
                 report_id, "pending", 0, "初始化报告...",
@@ -1904,73 +1904,77 @@ class ReportManager:
         full_report.md     - 完整报告
     """
     
-    # 报告存储目录
-    REPORTS_DIR = os.path.join(Config.UPLOAD_FOLDER, 'reports')
-    
     @classmethod
-    def _ensure_reports_dir(cls):
+    def _get_reports_dir(cls, tenant_id: str) -> str:
+        """Return the reports root directory for the given tenant."""
+        from ..models.tenant import TenantManager
+        return os.path.join(TenantManager._get_tenant_data_dir(tenant_id), 'reports')
+
+    @classmethod
+    def _ensure_reports_dir(cls, tenant_id: str):
         """确保报告根目录存在"""
-        os.makedirs(cls.REPORTS_DIR, exist_ok=True)
-    
+        os.makedirs(cls._get_reports_dir(tenant_id), exist_ok=True)
+
     @classmethod
-    def _get_report_folder(cls, report_id: str) -> str:
+    def _get_report_folder(cls, tenant_id: str, report_id: str) -> str:
         """获取报告文件夹路径"""
-        return os.path.join(cls.REPORTS_DIR, report_id)
-    
+        return os.path.join(cls._get_reports_dir(tenant_id), report_id)
+
     @classmethod
-    def _ensure_report_folder(cls, report_id: str) -> str:
+    def _ensure_report_folder(cls, tenant_id: str, report_id: str) -> str:
         """确保报告文件夹存在并返回路径"""
-        folder = cls._get_report_folder(report_id)
+        folder = cls._get_report_folder(tenant_id, report_id)
         os.makedirs(folder, exist_ok=True)
         return folder
-    
+
     @classmethod
-    def _get_report_path(cls, report_id: str) -> str:
+    def _get_report_path(cls, tenant_id: str, report_id: str) -> str:
         """获取报告元信息文件路径"""
-        return os.path.join(cls._get_report_folder(report_id), "meta.json")
-    
+        return os.path.join(cls._get_report_folder(tenant_id, report_id), "meta.json")
+
     @classmethod
-    def _get_report_markdown_path(cls, report_id: str) -> str:
+    def _get_report_markdown_path(cls, tenant_id: str, report_id: str) -> str:
         """获取完整报告Markdown文件路径"""
-        return os.path.join(cls._get_report_folder(report_id), "full_report.md")
-    
+        return os.path.join(cls._get_report_folder(tenant_id, report_id), "full_report.md")
+
     @classmethod
-    def _get_outline_path(cls, report_id: str) -> str:
+    def _get_outline_path(cls, tenant_id: str, report_id: str) -> str:
         """获取大纲文件路径"""
-        return os.path.join(cls._get_report_folder(report_id), "outline.json")
-    
+        return os.path.join(cls._get_report_folder(tenant_id, report_id), "outline.json")
+
     @classmethod
-    def _get_progress_path(cls, report_id: str) -> str:
+    def _get_progress_path(cls, tenant_id: str, report_id: str) -> str:
         """获取进度文件路径"""
-        return os.path.join(cls._get_report_folder(report_id), "progress.json")
-    
+        return os.path.join(cls._get_report_folder(tenant_id, report_id), "progress.json")
+
     @classmethod
-    def _get_section_path(cls, report_id: str, section_index: int) -> str:
+    def _get_section_path(cls, tenant_id: str, report_id: str, section_index: int) -> str:
         """获取章节Markdown文件路径"""
-        return os.path.join(cls._get_report_folder(report_id), f"section_{section_index:02d}.md")
-    
+        return os.path.join(cls._get_report_folder(tenant_id, report_id), f"section_{section_index:02d}.md")
+
     @classmethod
-    def _get_agent_log_path(cls, report_id: str) -> str:
+    def _get_agent_log_path(cls, tenant_id: str, report_id: str) -> str:
         """获取 Agent 日志文件路径"""
-        return os.path.join(cls._get_report_folder(report_id), "agent_log.jsonl")
-    
+        return os.path.join(cls._get_report_folder(tenant_id, report_id), "agent_log.jsonl")
+
     @classmethod
-    def _get_console_log_path(cls, report_id: str) -> str:
+    def _get_console_log_path(cls, tenant_id: str, report_id: str) -> str:
         """获取控制台日志文件路径"""
-        return os.path.join(cls._get_report_folder(report_id), "console_log.txt")
+        return os.path.join(cls._get_report_folder(tenant_id, report_id), "console_log.txt")
     
     @classmethod
-    def get_console_log(cls, report_id: str, from_line: int = 0) -> Dict[str, Any]:
+    def get_console_log(cls, tenant_id: str, report_id: str, from_line: int = 0) -> Dict[str, Any]:
         """
         获取控制台日志内容
-        
+
         这是报告生成过程中的控制台输出日志（INFO、WARNING等），
         与 agent_log.jsonl 的结构化日志不同。
-        
+
         Args:
+            tenant_id: 租户ID
             report_id: 报告ID
             from_line: 从第几行开始读取（用于增量获取，0 表示从头开始）
-            
+
         Returns:
             {
                 "logs": [日志行列表],
@@ -1979,7 +1983,7 @@ class ReportManager:
                 "has_more": 是否还有更多日志
             }
         """
-        log_path = cls._get_console_log_path(report_id)
+        log_path = cls._get_console_log_path(tenant_id, report_id)
         
         if not os.path.exists(log_path):
             return {
@@ -2007,28 +2011,30 @@ class ReportManager:
         }
     
     @classmethod
-    def get_console_log_stream(cls, report_id: str) -> List[str]:
+    def get_console_log_stream(cls, tenant_id: str, report_id: str) -> List[str]:
         """
         获取完整的控制台日志（一次性获取全部）
-        
+
         Args:
+            tenant_id: 租户ID
             report_id: 报告ID
-            
+
         Returns:
             日志行列表
         """
-        result = cls.get_console_log(report_id, from_line=0)
+        result = cls.get_console_log(tenant_id, report_id, from_line=0)
         return result["logs"]
     
     @classmethod
-    def get_agent_log(cls, report_id: str, from_line: int = 0) -> Dict[str, Any]:
+    def get_agent_log(cls, tenant_id: str, report_id: str, from_line: int = 0) -> Dict[str, Any]:
         """
         获取 Agent 日志内容
-        
+
         Args:
+            tenant_id: 租户ID
             report_id: 报告ID
             from_line: 从第几行开始读取（用于增量获取，0 表示从头开始）
-            
+
         Returns:
             {
                 "logs": [日志条目列表],
@@ -2037,7 +2043,7 @@ class ReportManager:
                 "has_more": 是否还有更多日志
             }
         """
-        log_path = cls._get_agent_log_path(report_id)
+        log_path = cls._get_agent_log_path(tenant_id, report_id)
         
         if not os.path.exists(log_path):
             return {
@@ -2069,36 +2075,38 @@ class ReportManager:
         }
     
     @classmethod
-    def get_agent_log_stream(cls, report_id: str) -> List[Dict[str, Any]]:
+    def get_agent_log_stream(cls, tenant_id: str, report_id: str) -> List[Dict[str, Any]]:
         """
         获取完整的 Agent 日志（用于一次性获取全部）
-        
+
         Args:
+            tenant_id: 租户ID
             report_id: 报告ID
-            
+
         Returns:
             日志条目列表
         """
-        result = cls.get_agent_log(report_id, from_line=0)
+        result = cls.get_agent_log(tenant_id, report_id, from_line=0)
         return result["logs"]
     
     @classmethod
-    def save_outline(cls, report_id: str, outline: ReportOutline) -> None:
+    def save_outline(cls, tenant_id: str, report_id: str, outline: ReportOutline) -> None:
         """
         保存报告大纲
-        
+
         在规划阶段完成后立即调用
         """
-        cls._ensure_report_folder(report_id)
-        
-        with open(cls._get_outline_path(report_id), 'w', encoding='utf-8') as f:
+        cls._ensure_report_folder(tenant_id, report_id)
+
+        with open(cls._get_outline_path(tenant_id, report_id), 'w', encoding='utf-8') as f:
             json.dump(outline.to_dict(), f, ensure_ascii=False, indent=2)
-        
+
         logger.info(f"大纲已保存: {report_id}")
     
     @classmethod
     def save_section(
         cls,
+        tenant_id: str,
         report_id: str,
         section_index: int,
         section: ReportSection
@@ -2109,6 +2117,7 @@ class ReportManager:
         在每个章节生成完成后立即调用，实现分章节输出
 
         Args:
+            tenant_id: 租户ID
             report_id: 报告ID
             section_index: 章节索引（从1开始）
             section: 章节对象
@@ -2116,7 +2125,7 @@ class ReportManager:
         Returns:
             保存的文件路径
         """
-        cls._ensure_report_folder(report_id)
+        cls._ensure_report_folder(tenant_id, report_id)
 
         # 构建章节Markdown内容 - 清理可能存在的重复标题
         cleaned_content = cls._clean_section_content(section.content, section.title)
@@ -2126,7 +2135,7 @@ class ReportManager:
 
         # 保存文件
         file_suffix = f"section_{section_index:02d}.md"
-        file_path = os.path.join(cls._get_report_folder(report_id), file_suffix)
+        file_path = os.path.join(cls._get_report_folder(tenant_id, report_id), file_suffix)
         with open(file_path, 'w', encoding='utf-8') as f:
             f.write(md_content)
 
