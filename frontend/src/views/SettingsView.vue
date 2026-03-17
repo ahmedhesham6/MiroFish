@@ -263,7 +263,7 @@ import { ref, computed, onMounted, reactive } from 'vue'
 import { useAuth } from '../composables/useAuth'
 import { getKeys, updateKeys } from '../api/settings'
 import { getBillingStatus, getCheckoutUrl } from '../api/billing'
-import { listPlugins, enablePlugin, disablePlugin, uploadPlugin, deletePlugin } from '../api/plugins'
+import { listPlugins, getPlugin, enablePlugin, disablePlugin, uploadPlugin, deletePlugin } from '../api/plugins'
 import PluginConfigForm from '../components/PluginConfigForm.vue'
 
 const { user, tenant, logout } = useAuth()
@@ -367,7 +367,7 @@ async function loadPlugins() {
   pluginsError.value = ''
   try {
     const data = await listPlugins()
-    plugins.value = (data?.plugins || data || []).map(p => ({ ...p, _toggling: false, _deleting: false }))
+    plugins.value = (data?.data || []).map(p => ({ ...p, _toggling: false, _deleting: false }))
   } catch (err) {
     pluginsError.value = err?.response?.data?.error || err?.message || 'Failed to load plugins.'
   } finally {
@@ -394,8 +394,13 @@ async function togglePlugin(plugin) {
   }
 }
 
-function openConfigModal(plugin) {
-  configPlugin.value = plugin
+async function openConfigModal(plugin) {
+  try {
+    const data = await getPlugin(plugin.name)
+    configPlugin.value = data?.data || plugin
+  } catch {
+    configPlugin.value = plugin
+  }
 }
 
 function onConfigSaved() {

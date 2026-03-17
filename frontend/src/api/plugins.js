@@ -21,7 +21,7 @@ export function getPluginConfig(name) {
 }
 
 export function updatePluginConfig(name, config) {
-  return api.put(`/api/plugins/${name}/config`, { config })
+  return api.put(`/api/plugins/${name}/config`, config)
 }
 
 export function uploadPlugin(file, onProgress) {

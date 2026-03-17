@@ -195,7 +195,7 @@ onMounted(async () => {
     const data = await getPluginConfig(props.plugin.name)
     const schema = props.plugin.config_schema || {}
     fields.value = buildFields(schema)
-    initFormValues(fields.value, data?.config || {})
+    initFormValues(fields.value, data?.data || {})
   } catch (err) {
     loadError.value = err?.response?.data?.error || err?.message || 'Failed to load config.'
   } finally {
