@@ -44,11 +44,11 @@
           <template v-if="billingStatus">
             <div class="info-row">
               <span class="info-key">Projects</span>
-              <span class="info-val">{{ billingStatus.projectsUsed ?? '—' }} / {{ billingStatus.projectsLimit ?? '∞' }}</span>
+              <span class="info-val">{{ billingStatus.usage?.projects ?? '—' }} / {{ billingStatus.limits?.max_projects === -1 ? '∞' : billingStatus.limits?.max_projects ?? '∞' }}</span>
             </div>
             <div class="info-row">
               <span class="info-key">Simulations</span>
-              <span class="info-val">{{ billingStatus.simulationsUsed ?? '—' }} / {{ billingStatus.simulationsLimit ?? '∞' }}</span>
+              <span class="info-val">{{ billingStatus.usage?.simulations_this_month ?? '—' }} / {{ billingStatus.limits?.max_simulations_per_month === -1 ? '∞' : billingStatus.limits?.max_simulations_per_month ?? '∞' }}</span>
             </div>
           </template>
         </div>
@@ -457,8 +457,8 @@ async function handleUpgrade() {
   checkoutLoading.value = true
   try {
     const data = await getCheckoutUrl('pro')
-    if (data.url) {
-      window.open(data.url, '_blank')
+    if (data.checkout_url) {
+      window.open(data.checkout_url, '_blank')
     }
   } catch (err) {
     checkoutError.value = err?.response?.data?.error || err?.message || 'Could not start checkout.'
