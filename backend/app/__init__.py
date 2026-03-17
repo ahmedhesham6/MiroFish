@@ -63,7 +63,7 @@ def create_app(config_class=Config):
         return response
     
     # Register blueprints
-    from .api import graph_bp, simulation_bp, report_bp, auth_bp, billing_bp, webhook_bp, plugins_bp
+    from .api import graph_bp, simulation_bp, report_bp, auth_bp, billing_bp, webhook_bp, plugins_bp, settings_bp
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(graph_bp, url_prefix='/api/graph')
     app.register_blueprint(simulation_bp, url_prefix='/api/simulation')
@@ -71,6 +71,7 @@ def create_app(config_class=Config):
     app.register_blueprint(billing_bp, url_prefix='/api/billing')
     app.register_blueprint(webhook_bp, url_prefix='/api/webhooks')
     app.register_blueprint(plugins_bp, url_prefix='/api/plugins')
+    app.register_blueprint(settings_bp, url_prefix='/api/settings')
     
     # Health check
     @app.route('/health')
