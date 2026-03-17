@@ -25,7 +25,7 @@ function loadFromStorage() {
 
 async function login(email, password) {
   const data = await loginAPI(email, password)
-  localStorage.setItem(TOKEN_KEY, data.token)
+  localStorage.setItem(TOKEN_KEY, data.access_token)
   localStorage.setItem(USER_KEY, JSON.stringify(data.user))
   localStorage.setItem(TENANT_KEY, JSON.stringify(data.tenant))
   user.value = data.user
@@ -34,7 +34,7 @@ async function login(email, password) {
 
 async function register(email, password, displayName, tenantName) {
   const data = await registerAPI(email, password, displayName, tenantName)
-  localStorage.setItem(TOKEN_KEY, data.token)
+  localStorage.setItem(TOKEN_KEY, data.access_token)
   localStorage.setItem(USER_KEY, JSON.stringify(data.user))
   localStorage.setItem(TENANT_KEY, JSON.stringify(data.tenant))
   user.value = data.user
