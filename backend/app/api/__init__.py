@@ -1,5 +1,5 @@
 """
-API路由模块
+API routing module.
 """
 
 from flask import Blueprint
@@ -7,8 +7,17 @@ from flask import Blueprint
 graph_bp = Blueprint('graph', __name__)
 simulation_bp = Blueprint('simulation', __name__)
 report_bp = Blueprint('report', __name__)
+auth_bp = Blueprint('auth', __name__)
+billing_bp = Blueprint('billing', __name__)
+webhook_bp = Blueprint('webhook', __name__)
+plugins_bp = Blueprint('plugins', __name__)
+settings_bp = Blueprint('settings', __name__)
 
 from . import graph  # noqa: E402, F401
 from . import simulation  # noqa: E402, F401
 from . import report  # noqa: E402, F401
+from . import auth  # noqa: E402, F401
+from . import billing  # noqa: E402, F401
+from . import plugins  # noqa: E402, F401
+from . import settings  # noqa: E402, F401
 
