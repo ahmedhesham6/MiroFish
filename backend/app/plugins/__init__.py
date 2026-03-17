@@ -8,6 +8,7 @@ from .sdk import (
     MarketPlugin,
     ActionPlugin,
     VALID_PLUGIN_TYPES,
+    validate_plugin_name,
 )
 from .registry import PluginRegistry
 from .executor import PluginExecutor, PluginResult
@@ -19,6 +20,7 @@ __all__ = [
     "MarketPlugin",
     "ActionPlugin",
     "VALID_PLUGIN_TYPES",
+    "validate_plugin_name",
     "PluginRegistry",
     "PluginExecutor",
     "PluginResult",

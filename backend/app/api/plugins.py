@@ -17,9 +17,19 @@ from ..config import Config
 from ..middleware.auth import requires_auth, requires_plan, check_usage_limit
 from ..models.tenant import TenantManager
 from ..plugins.registry import PluginRegistry, _tenant_plugins_dir
+from ..plugins.sdk import validate_plugin_name
 from ..utils.logger import get_logger
 
 logger = get_logger("mirofish.api.plugins")
+
+
+def _check_plugin_name(name: str):
+    """Validate a plugin name from a URL parameter. Returns a 400 response or None."""
+    try:
+        validate_plugin_name(name)
+    except ValueError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    return None
 
 
 def _plugin_config_path(tenant_id: str, plugin_name: str) -> str:
@@ -69,6 +79,9 @@ def list_plugins():
 @plugins_bp.route("/<name>", methods=["GET"])
 @requires_auth
 def get_plugin(name: str):
+    err = _check_plugin_name(name)
+    if err:
+        return err
     tenant = g.current_tenant
     plugins_dir = _tenant_plugins_dir(tenant.tenant_id)
     manifest_path = os.path.join(plugins_dir, name, "plugin.yaml")
@@ -99,6 +112,9 @@ def get_plugin(name: str):
 @requires_auth
 @check_usage_limit("plugin")
 def enable_plugin(name: str):
+    err = _check_plugin_name(name)
+    if err:
+        return err
     tenant = g.current_tenant
     plugins_dir = _tenant_plugins_dir(tenant.tenant_id)
     manifest_path = os.path.join(plugins_dir, name, "plugin.yaml")
@@ -119,6 +135,9 @@ def enable_plugin(name: str):
 @plugins_bp.route("/<name>/disable", methods=["POST"])
 @requires_auth
 def disable_plugin(name: str):
+    err = _check_plugin_name(name)
+    if err:
+        return err
     tenant = g.current_tenant
     if name in tenant.enabled_plugins:
         tenant.enabled_plugins.remove(name)
@@ -133,6 +152,9 @@ def disable_plugin(name: str):
 @plugins_bp.route("/<name>/config", methods=["GET"])
 @requires_auth
 def get_plugin_config(name: str):
+    err = _check_plugin_name(name)
+    if err:
+        return err
     tenant = g.current_tenant
     plugins_dir = _tenant_plugins_dir(tenant.tenant_id)
     if not os.path.isdir(os.path.join(plugins_dir, name)):
@@ -149,6 +171,9 @@ def get_plugin_config(name: str):
 @plugins_bp.route("/<name>/config", methods=["PUT"])
 @requires_auth
 def update_plugin_config(name: str):
+    err = _check_plugin_name(name)
+    if err:
+        return err
     tenant = g.current_tenant
     plugins_dir = _tenant_plugins_dir(tenant.tenant_id)
     manifest_path = os.path.join(plugins_dir, name, "plugin.yaml")
@@ -274,6 +299,9 @@ def upload_plugin():
 @requires_auth
 @requires_plan("pro")
 def delete_plugin(name: str):
+    err = _check_plugin_name(name)
+    if err:
+        return err
     tenant = g.current_tenant
     plugins_dir = _tenant_plugins_dir(tenant.tenant_id)
     plugin_dir = os.path.join(plugins_dir, name)

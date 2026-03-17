@@ -2,6 +2,7 @@
 Plugin SDK: base classes and YAML manifest format for MiroFish plugins.
 """
 
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
@@ -11,6 +12,20 @@ import jsonschema
 
 
 VALID_PLUGIN_TYPES = {"source", "market", "action"}
+PLUGIN_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$")
+
+
+def validate_plugin_name(name: str) -> None:
+    """Validate that a plugin name is safe for filesystem use.
+
+    Raises ValueError if the name contains path traversal characters or
+    does not match the allowed pattern.
+    """
+    if not isinstance(name, str) or not PLUGIN_NAME_PATTERN.match(name):
+        raise ValueError(
+            f"Invalid plugin name {name!r}. "
+            "Must match [a-zA-Z0-9][a-zA-Z0-9_-]* (no slashes, dots, or spaces)."
+        )
 
 
 @dataclass
@@ -48,6 +63,8 @@ class PluginManifest:
             if key not in data:
                 raise ValueError(f"plugin.yaml missing required field: {key!r}")
 
+        validate_plugin_name(data["name"])
+
         plugin_type = data["type"]
         if plugin_type not in VALID_PLUGIN_TYPES:
             raise ValueError(
@@ -67,6 +84,8 @@ class PluginManifest:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "PluginManifest":
         """Construct a PluginManifest from a plain dict (e.g. loaded from JSON storage)."""
+        validate_plugin_name(data["name"])
+
         plugin_type = data.get("type") or data.get("plugin_type", "")
         if plugin_type not in VALID_PLUGIN_TYPES:
             raise ValueError(
