@@ -5,7 +5,7 @@ export function loginAPI(email, password) {
 }
 
 export function registerAPI(email, password, displayName, tenantName) {
-  return api.post('/api/auth/register', { email, password, displayName, tenantName })
+  return api.post('/api/auth/register', { email, password, display_name: displayName, tenant_name: tenantName })
 }
 
 export function getMeAPI() {
